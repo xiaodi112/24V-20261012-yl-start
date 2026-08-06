@@ -308,6 +308,29 @@ static void test_already_at_target(void)
     CHECK(test_motor_enable == 0);
 }
 
+/* 唤醒自愈: 动作被深睡打断后 redrive 恢复驱动 */
+static void test_redrive(void)
+{
+    RESET_VALVE();
+    CHECK(valve_fsm_start("open", 1, 0) == 1);
+
+    /* 模拟深睡把使能/驱动清零 (引脚被置 Analog 后电机停止) */
+    test_motor_enable = 0;
+    test_drive = 0;
+    valve_fsm_redrive();
+
+    CHECK(test_motor_enable == 1);
+    CHECK(test_drive == 1);
+    CHECK(valve_fsm_busy() == 1);
+    CHECK(valve_fsm_result_pending() == 0);
+
+    /* 非移动状态 redrive 应为空操作 */
+    RESET_VALVE();
+    valve_fsm_redrive();
+    CHECK(test_motor_enable == 0);
+    CHECK(test_drive == 0);
+}
+
 void test_valve_fsm_all(void)
 {
     test_normal_open();
@@ -325,4 +348,5 @@ void test_valve_fsm_all(void)
     test_wrong_debounce();
     test_wrong_rearm();
     test_already_at_target();
+    test_redrive();
 }

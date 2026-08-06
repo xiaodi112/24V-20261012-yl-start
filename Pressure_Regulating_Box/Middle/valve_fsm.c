@@ -416,6 +416,25 @@ void valve_fsm_recover(void)
     printf_debug("[VALVE] recovered done (result pending)\r\n");
 }
 
+/* ==================== 唤醒自愈 ==================== */
+void valve_fsm_redrive(void)
+{
+    /* 仅在移动中有效: 深睡会把电机/限位引脚置为 Analog,
+     * 唤醒后重新配置引脚并恢复当前方向的使能与驱动 */
+    if(s_vfsm.state != VALVE_FSM_OPENING && s_vfsm.state != VALVE_FSM_CLOSING)
+        return;
+
+    bsp_motor_init();   /* 幂等: 恢复 M_SLP/驱动/限位引脚配置 */
+    bsp_motor_enable(1);
+    if(s_vfsm.is_open)
+        bsp_motor_drive_open();
+    else
+        bsp_motor_drive_close();
+
+    printf_debug("[VALVE] redrive after wake (dir=%s)\r\n",
+                 s_vfsm.is_open ? "OPEN" : "CLOSE");
+}
+
 const char* valve_result_str(ValveFsmResult_t result)
 {
     switch(result)

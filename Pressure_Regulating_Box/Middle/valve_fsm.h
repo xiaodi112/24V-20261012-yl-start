@@ -78,6 +78,9 @@ ValveFsmResult_t valve_fsm_result(void);
 /* 上电恢复: 检测 EEPROM 动作日志, 续走中断的动作 */
 void valve_fsm_recover(void);
 
+/* 唤醒自愈: 若动作被深睡打断(电机/限位引脚被置 Analog), 重新配置引脚并恢复当前方向驱动 */
+void valve_fsm_redrive(void);
+
 /* 结果转字符串 (与旧 valve_execute 返回串一致) */
 const char* valve_result_str(ValveFsmResult_t result);
 

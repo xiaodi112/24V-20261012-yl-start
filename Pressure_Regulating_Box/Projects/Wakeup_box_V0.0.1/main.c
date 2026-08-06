@@ -610,6 +610,10 @@ static void realtime_enter_sleep(void)
     if(!sleep_gate_rtc_ok())
         return;   // RTC 不走时禁止深睡, 降级为活跃采集
 
+    /* 阀门动作进行中: 禁止深睡 (深睡会切断电机并让限位引脚读失效), 由主循环 poll 推进 */
+    if(valve_fsm_busy())
+        return;
+
     gpio_set_i2c_power(0);
     rtc_alarm_wakeup_init();
     rtc_set_next_alarm_sec(g_real_frequency);
@@ -644,6 +648,7 @@ static void do_realtime_check(void)
 
     // === 最小初始化 (时钟恢复) ===
     bsp_pmu_wakeup_reinit((sched_event_pending() & EVT_LPUART) ? 1 : 0);
+    valve_fsm_redrive();   /* 唤醒自愈: 若动作被深睡打断则恢复驱动 */
 
     // 软件看门?? 实时采集路径??do_sleep 循环直接调用(不经主循环分??, 需独立使能
     // SysTick 已由 bsp_pmu_wakeup_reinit 重新配置; 回睡时 bsp_pmu_enter_deepsleep 会关闭
@@ -1061,6 +1066,7 @@ static void do_sleep(void)
     {
         // 最小时钟恢????读RTC判断是否到达正常采集网格
         bsp_pmu_wakeup_reinit((sched_event_pending() & EVT_LPUART) ? 1 : 0);
+        valve_fsm_redrive();   /* 唤醒自愈 */
         rtc_register_sync_wait();
 
         {
@@ -1227,6 +1233,7 @@ static void do_wakeup(void)
         g_need_adc_sampling = 0;
         
         bsp_pmu_wakeup_reinit(0);   /* 纯RTC唤醒分支, 无LPUART字节 */
+        valve_fsm_redrive();   /* 唤醒自愈 */
         
         // 极简采集初始?? Systick、Debug 串口发?? PD4(SW_IIC)/IIC 引脚??PT304D_CollectAll 内部初始??
         systick_config();
@@ -1252,6 +1259,7 @@ static void do_wakeup(void)
         g_need_adc_sampling = 1;
         
         bsp_pmu_wakeup_reinit(0);   /* 按键唤醒分支, 无LPUART字节 */
+        valve_fsm_redrive();   /* 唤醒自愈 */
         trea_uart_init();
 		buzzer_init();
         button_exti_disable();
@@ -1266,6 +1274,7 @@ static void do_wakeup(void)
         g_need_adc_sampling = 1;
         
         bsp_pmu_wakeup_reinit(counter0);   /* LPUART/RI唤醒分支 */
+        valve_fsm_redrive();   /* 唤醒自愈 */
         sys_init();
         
         // 禁用按键EXTI(唤醒后立即禁止抨动重复触??

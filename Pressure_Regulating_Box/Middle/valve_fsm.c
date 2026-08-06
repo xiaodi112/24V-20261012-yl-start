@@ -1,0 +1,448 @@
+/**
+ * @file    valve_fsm.c
+ * @brief   阀门动作非阻塞状态机实现
+ *
+ * 堵转保护说明: 当前硬件仅有双限位开关, 无电流检测;
+ * 保护由三层构成: 动作前双限位预检 / 移动中双限位与反向限位故障(边沿+去抖150ms) / 移动超时(20s).
+ * 反向限位检测: 启动时处于激活的限位是"离开位", 检测暂不武装, 释放后重新武装,
+ * 避免从对端启动时误判; 目标到位同样需要连续有效 150ms 防抖动提前成功.
+ * 若未来增加电流采样或驱动芯片 FAULT 引脚, 在 poll() 中追加判定即可.
+ */
+
+#include "valve_fsm.h"
+#include "bsp_motor.h"
+#include "bsp_wdt.h"
+#include "eeprom_config.h"
+#include "delay.h"
+#include "fault_log.h"
+#include "m24m01.h"
+#include "usart.h"
+#include <string.h>
+
+/* ==================== 时间预算 ==================== */
+#define VALVE_MOVE_TIMEOUT_MS   20000U   /* 单程移动超时 (与旧实现一致) */
+#define VALVE_LIMIT_DEBOUNCE_MS 150U     /* 限位去抖窗口: 目标到位/反向故障需连续有效这么久 */
+
+/* ==================== EEPROM 动作日志 (失电恢复) ==================== */
+#define VALVE_JOURNAL_BASE      0x05A0U
+#define VALVE_JOURNAL_MAGIC     0xA5F1U
+
+typedef struct {
+    uint16_t magic;
+    uint8_t  is_open;      /* 1=开阀, 0=关阀 */
+    uint8_t  persist;      /* 完成后是否持久化 last_order */
+    uint8_t  reserved[12];
+} ValveJournal_t;          /* 16B */
+
+/* ==================== 状态机上下文 ==================== */
+typedef struct {
+    ValveFsmState_t state;
+    uint8_t  is_open;           /* 目标方向 */
+    uint8_t  persist;
+    uint32_t move_start_ms;     /* 移动起始时刻 */
+    uint32_t hold_deadline_ms;  /* 压紧结束时刻 */
+    uint8_t  target_was_active_at_start;  /* 启动时目标限位已激活 (直接完成, 无需去抖) */
+    uint8_t  wrong_was_active_at_start;   /* 启动时反向限位已激活 (离开位, 检测暂不武装) */
+    uint8_t  wrong_armed;                 /* 反向限位检测是否武装 (释放后重新武装) */
+    uint32_t target_since_ms;             /* 目标限位连续有效起始时刻 (0=未跟踪) */
+    uint32_t wrong_since_ms;              /* 反向限位连续有效起始时刻 (0=未跟踪) */
+    uint8_t  target_tracking;             /* 目标限位去抖是否在跟踪 (与时间值解耦的哨兵) */
+    uint8_t  wrong_tracking;              /* 反向限位去抖是否在跟踪 */
+    ValveFsmResult_t result;
+    uint8_t  result_pending;
+    ValveReportOrigin_t report_origin;
+} ValveFsmCtx_t;
+
+static ValveFsmCtx_t s_vfsm;
+
+/* ==================== 内部: EEPROM 日志 ==================== */
+static void journal_save(uint8_t is_open, uint8_t persist)
+{
+    ValveJournal_t j;
+
+    memset(&j, 0, sizeof(j));
+    j.magic   = VALVE_JOURNAL_MAGIC;
+    j.is_open = is_open;
+    j.persist = persist;
+    M24M01_Write(VALVE_JOURNAL_BASE, (const uint8_t *)&j, sizeof(j));
+}
+
+static void journal_clear(void)
+{
+    ValveJournal_t j;
+
+    memset(&j, 0xFF, sizeof(j));
+    M24M01_Write(VALVE_JOURNAL_BASE, (const uint8_t *)&j, sizeof(j));
+}
+
+static uint8_t journal_load(ValveJournal_t *out)
+{
+    ValveJournal_t j;
+
+    M24M01_Read(VALVE_JOURNAL_BASE, (uint8_t *)&j, sizeof(j));
+    if(j.magic != VALVE_JOURNAL_MAGIC)
+        return 0;
+    *out = j;
+    return 1;
+}
+
+/* ==================== 内部: 故障收口 ==================== */
+static void vfsm_fault(ValveFsmResult_t result, FaultCode_t code)
+{
+    bsp_motor_drive_stop();
+    bsp_motor_enable(0);
+    journal_clear();
+
+    fault_log_add(code, (uint32_t)(s_vfsm.is_open ? 1 : 0));
+    printf_debug("[VALVE] fault result=%d dir=%d\r\n",
+                 (int)result, (int)(s_vfsm.is_open ? 1 : 0));
+
+    s_vfsm.state = VALVE_FSM_IDLE;
+    s_vfsm.result = result;
+    s_vfsm.result_pending = 1;
+}
+
+/* ==================== 内部: 完成收口 ==================== */
+static void vfsm_complete(ValveFsmResult_t result)
+{
+    bsp_motor_drive_stop();
+    bsp_motor_enable(0);
+    journal_clear();
+
+    if(s_vfsm.persist)
+    {
+        g_valve_last_order = (result == VALVE_FSM_RESULT_ON) ? 1 : 0;
+        config_save_ext();
+    }
+
+    printf_debug("[VALVE] done result=%d\r\n", (int)result);
+    s_vfsm.state = VALVE_FSM_IDLE;
+    s_vfsm.result = result;
+    s_vfsm.result_pending = 1;
+}
+
+/* ==================== 内部: 限位读取 ==================== */
+static uint8_t limit_target(void)
+{
+    return s_vfsm.is_open ? bsp_motor_limit_open() : bsp_motor_limit_close();
+}
+
+static uint8_t limit_wrong(void)
+{
+    return s_vfsm.is_open ? bsp_motor_limit_close() : bsp_motor_limit_open();
+}
+
+/* ==================== 接口实现 ==================== */
+void valve_fsm_init(void)
+{
+    memset(&s_vfsm, 0, sizeof(s_vfsm));
+    s_vfsm.state = VALVE_FSM_IDLE;
+    s_vfsm.report_origin = VALVE_REPORT_NONE;
+}
+
+void valve_fsm_set_report(ValveReportOrigin_t origin)
+{
+    s_vfsm.report_origin = origin;
+}
+
+ValveReportOrigin_t valve_fsm_take_report(void)
+{
+    ValveReportOrigin_t o = s_vfsm.report_origin;
+
+    s_vfsm.report_origin = VALVE_REPORT_NONE;
+    return o;
+}
+
+uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t preempt)
+{
+    uint8_t is_open;
+    uint8_t target, wrong;
+
+    if(!action)
+        return 0;
+
+    if(strcmp(action, "open") == 0 || strcmp(action, "1") == 0)
+        is_open = 1;
+    else if(strcmp(action, "close") == 0 || strcmp(action, "0") == 0)
+        is_open = 0;
+    else
+    {
+        s_vfsm.result = VALVE_FSM_RESULT_ERR;
+        s_vfsm.result_pending = 1;
+        return 0;
+    }
+
+    if(!g_motor_enabled)
+    {
+        printf_debug("[VALVE] Motor disabled, skip\r\n");
+        s_vfsm.result = VALVE_FSM_RESULT_ERR;
+        s_vfsm.result_pending = 1;
+        return 0;
+    }
+
+    /* 每次动作前确保电机/限位引脚处于正确配置:
+     * 深睡唤醒后 PA11/PA12 可能处于 Analog 状态, 读取恒为低电平会被误判为"已到位",
+     * 导致电机刚启动就完成停机 (与阀门实际位置无关). bsp_motor_init() 为幂等操作. */
+    bsp_motor_init();
+
+    /* 忙时处理: 同方向重复指令视为已接受; 反方向需 preempt 抢占 */
+    if(s_vfsm.state != VALVE_FSM_IDLE)
+    {
+        if(s_vfsm.is_open == is_open)
+            return 1;   /* 已在向目标方向动作, 完成时统一出结果 */
+        if(!preempt)
+        {
+            s_vfsm.result = VALVE_FSM_RESULT_ERR;
+            s_vfsm.result_pending = 1;
+            return 0;
+        }
+        /* 抢占: 先停止当前动作, 再重启反方向 */
+        bsp_motor_drive_stop();
+        bsp_motor_enable(0);
+    }
+
+    /* 动作前限位预检: 双限位同时触发 = 机械故障, 不使能电机
+     * 注意: 必须用本次动作方向 (is_open) 读取限位, 不能用 s_vfsm.is_open,
+     * 后者可能是上一轮动作的方向或 init 后的初始值, 会导致目标/反向限位互换 */
+    target = is_open ? bsp_motor_limit_open()  : bsp_motor_limit_close();
+    wrong  = is_open ? bsp_motor_limit_close() : bsp_motor_limit_open();
+    printf_debug("[VALVE] limits at start: open=%d close=%d (dir=%s)\r\n",
+                 (int)bsp_motor_limit_open(), (int)bsp_motor_limit_close(),
+                 is_open ? "OPEN" : "CLOSE");
+    if(target && wrong)
+    {
+        printf_debug("[VALVE] both limits active, abort without energizing\r\n");
+        journal_clear();   /* 动作无法进行, 清除恢复日志避免下次上电重试 */
+        fault_log_add(FAULT_CODE_VALVE_ERR, 0);
+        s_vfsm.result = VALVE_FSM_RESULT_ERR;
+        s_vfsm.result_pending = 1;
+        return 0;
+    }
+
+    /* 动作前写 EEPROM 日志 (失电恢复依据), 再使能电机 */
+    journal_save(is_open, update_last_order);
+
+    s_vfsm.is_open  = is_open;
+    s_vfsm.persist  = update_last_order;
+    s_vfsm.state    = is_open ? VALVE_FSM_OPENING : VALVE_FSM_CLOSING;
+    s_vfsm.move_start_ms = trea_millis();
+    /* 记录启动时的限位状态: 目标已在位则直接完成; 反向在位是离开位, 检测暂不武装 */
+    s_vfsm.target_was_active_at_start = target;
+    s_vfsm.wrong_was_active_at_start  = wrong;
+    s_vfsm.wrong_armed                = (uint8_t)(wrong ? 0 : 1);
+    s_vfsm.target_since_ms = 0;
+    s_vfsm.wrong_since_ms  = 0;
+    s_vfsm.target_tracking = 0;
+    s_vfsm.wrong_tracking  = 0;
+
+    bsp_motor_enable(1);
+    if(is_open)
+        bsp_motor_drive_open();
+    else
+        bsp_motor_drive_close();
+
+    printf_debug("[VALVE] start %s (persist=%d)\r\n", is_open ? "OPEN" : "CLOSE",
+                 (int)update_last_order);
+    return 1;
+}
+
+void valve_fsm_poll(void)
+{
+    uint32_t now;
+    uint8_t target, wrong;
+
+    switch(s_vfsm.state)
+    {
+        case VALVE_FSM_OPENING:
+        case VALVE_FSM_CLOSING:
+            now = trea_millis();
+            target = limit_target();
+            wrong  = limit_wrong();
+
+            /* 双限位同时触发: 机械故障, 立即停止 */
+            if(target && wrong)
+            {
+                vfsm_fault(VALVE_FSM_RESULT_ERR, FAULT_CODE_VALVE_ERR);
+                break;
+            }
+            /* 目标到位 */
+            if(target)
+            {
+                uint8_t target_ok = 0;
+
+                if(s_vfsm.target_was_active_at_start)
+                {
+                    /* 启动时已在目标位: 无需去抖, 直接完成 */
+                    target_ok = 1;
+                }
+                else
+                {
+                    /* 移动中到位: 需连续有效 >= 去抖窗口, 防限位抖动提前成功 */
+                    if(!s_vfsm.target_tracking)
+                    {
+                        s_vfsm.target_tracking  = 1;
+                        s_vfsm.target_since_ms = now;
+                    }
+                    else if((now - s_vfsm.target_since_ms) >= VALVE_LIMIT_DEBOUNCE_MS)
+                        target_ok = 1;
+                }
+
+                if(target_ok)
+                {
+                    bsp_motor_drive_stop();
+                    /* 压紧阶段: 保持使能, 带独立超时 */
+                    if(g_vdelay.enabled && g_vdelay.delay_ms > 0)
+                    {
+                        uint32_t hold_ms = (g_vdelay.delay_ms > VDLY_DELAY_MS_MAX)
+                                         ? VDLY_DELAY_MS_MAX : g_vdelay.delay_ms;
+                        s_vfsm.state = VALVE_FSM_HOLDING;
+                        s_vfsm.hold_deadline_ms = now + hold_ms;
+                        printf_debug("[VALVE] limit reached, hold %lums\r\n", (unsigned long)hold_ms);
+                    }
+                    else
+                    {
+                        vfsm_complete(s_vfsm.is_open ? VALVE_FSM_RESULT_ON : VALVE_FSM_RESULT_OFF);
+                    }
+                    break;
+                }
+            }
+            else
+            {
+                s_vfsm.target_tracking = 0;
+                s_vfsm.target_since_ms = 0;   /* 目标限位释放, 重置去抖计时 */
+            }
+
+            /* 反向限位 (目标未到位): 边沿 + 去抖判机械卡死/方向错误
+             * - 启动时就处于激活(离开位): 忽略, 等它自然释放后重新武装
+             * - 新激活需连续 >= 去抖窗口才判故障, 防瞬时抖动误停 */
+            if(wrong)
+            {
+                if(!s_vfsm.wrong_armed)
+                {
+                    s_vfsm.wrong_tracking = 0;
+                    s_vfsm.wrong_since_ms = 0;   /* 离开位仍激活, 忽略 */
+                }
+                else if(!s_vfsm.wrong_tracking)
+                {
+                    s_vfsm.wrong_tracking = 1;
+                    s_vfsm.wrong_since_ms = now;
+                }
+                else if((now - s_vfsm.wrong_since_ms) >= VALVE_LIMIT_DEBOUNCE_MS)
+                {
+                    vfsm_fault(VALVE_FSM_RESULT_ERR, FAULT_CODE_VALVE_ERR);
+                    break;
+                }
+            }
+            else
+            {
+                s_vfsm.wrong_tracking = 0;
+                s_vfsm.wrong_since_ms = 0;
+                s_vfsm.wrong_armed    = 1;   /* 反向限位已释放 → 检测武装 */
+            }
+            /* 移动超时 (无限位变化, 等价堵转判定) */
+            if((now - s_vfsm.move_start_ms) >= VALVE_MOVE_TIMEOUT_MS)
+            {
+                vfsm_fault(VALVE_FSM_RESULT_TIMEOUT, FAULT_CODE_VALVE_TIMEOUT);
+            }
+            break;
+
+        case VALVE_FSM_HOLDING:
+            now = trea_millis();
+            /* 压紧期间双限位异常: 立即故障 */
+            if(limit_target() && limit_wrong())
+            {
+                vfsm_fault(VALVE_FSM_RESULT_ERR, FAULT_CODE_VALVE_ERR);
+                break;
+            }
+            if(now >= s_vfsm.hold_deadline_ms)
+            {
+                /* 压紧结束: 目标限位仍有效 → 成功; 否则按旧语义判定 */
+                if(limit_target())
+                    vfsm_complete(s_vfsm.is_open ? VALVE_FSM_RESULT_ON : VALVE_FSM_RESULT_OFF);
+                else if(limit_wrong())
+                    vfsm_fault(VALVE_FSM_RESULT_ERR, FAULT_CODE_VALVE_ERR);
+                else
+                    vfsm_fault(VALVE_FSM_RESULT_TIMEOUT, FAULT_CODE_VALVE_TIMEOUT);
+            }
+            break;
+
+        case VALVE_FSM_IDLE:
+        case VALVE_FSM_FAULT:
+        default:
+            break;
+    }
+}
+
+uint8_t valve_fsm_busy(void)
+{
+    return (s_vfsm.state != VALVE_FSM_IDLE) ? 1 : 0;
+}
+
+uint8_t valve_fsm_result_pending(void)
+{
+    return s_vfsm.result_pending;
+}
+
+ValveFsmResult_t valve_fsm_result(void)
+{
+    ValveFsmResult_t r = s_vfsm.result;
+
+    s_vfsm.result = VALVE_FSM_RESULT_NONE;
+    s_vfsm.result_pending = 0;
+    return r;
+}
+
+void valve_fsm_recover(void)
+{
+    ValveJournal_t j;
+
+    if(!journal_load(&j))
+        return;
+
+    printf_debug("[VALVE] recovering interrupted move (dir=%s)\r\n",
+                 j.is_open ? "OPEN" : "CLOSE");
+    fault_log_add(FAULT_CODE_VALVE_RECOVER, (uint32_t)(j.is_open ? 1 : 0));
+
+    /* 续走中断动作: 目标限位与超时保护兜底 */
+    valve_fsm_start(j.is_open ? "open" : "close", j.persist, 0);
+
+    /* 同步完成: 避免电机在后续 INIT 阻塞期间无人轮询而长时间带电 */
+    while(valve_fsm_busy())
+    {
+        valve_fsm_poll();
+        bsp_wdt_sw_feed();
+    }
+    /* 结果不在此消费, 由调用方 (主循环钩子) 读取上报 */
+    printf_debug("[VALVE] recovered done (result pending)\r\n");
+}
+
+/* ==================== 唤醒自愈 ==================== */
+void valve_fsm_redrive(void)
+{
+    /* 仅在移动中有效: 深睡会把电机/限位引脚置为 Analog,
+     * 唤醒后重新配置引脚并恢复当前方向的使能与驱动 */
+    if(s_vfsm.state != VALVE_FSM_OPENING && s_vfsm.state != VALVE_FSM_CLOSING)
+        return;
+
+    bsp_motor_init();   /* 幂等: 恢复 M_SLP/驱动/限位引脚配置 */
+    bsp_motor_enable(1);
+    if(s_vfsm.is_open)
+        bsp_motor_drive_open();
+    else
+        bsp_motor_drive_close();
+
+    printf_debug("[VALVE] redrive after wake (dir=%s)\r\n",
+                 s_vfsm.is_open ? "OPEN" : "CLOSE");
+}
+
+const char* valve_result_str(ValveFsmResult_t result)
+{
+    switch(result)
+    {
+        case VALVE_FSM_RESULT_ON:       return "valve_on";
+        case VALVE_FSM_RESULT_OFF:      return "valve_off";
+        case VALVE_FSM_RESULT_TIMEOUT:  return "valve_timeout";
+        case VALVE_FSM_RESULT_ERR:      return "valve_err";
+        default:                    return "valve_err";
+    }
+}

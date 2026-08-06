@@ -57,13 +57,26 @@
 /* ---------- 阀门最后状态默认值 ---------- */
 #define APP_DEFAULT_VALVE_LAST_ORDER  0         /* 0=关, 1=开 (上电时若 EEPROM 无数据则使用) */
 
+/* ==================== 阀门执行模式 (编译开关) ====================
+ *   VALVE_MODE_NONBLOCKING : 非阻塞状态机 (事件驱动, 含堵转/去抖/失电恢复/深睡门控)
+ *   VALVE_MODE_BLOCKING    : 阻塞式 (原始忙等, 真机异常时一键回退)
+ * 必须且只能启用一个 */
+#define VALVE_MODE_NONBLOCKING
+//#define VALVE_MODE_BLOCKING
+
+#if defined(VALVE_MODE_NONBLOCKING) && defined(VALVE_MODE_BLOCKING)
+  #error "VALVE: 只能选择一种执行模式 (NONBLOCKING / BLOCKING)"
+#elif !defined(VALVE_MODE_NONBLOCKING) && !defined(VALVE_MODE_BLOCKING)
+  #error "VALVE: 未选择执行模式, 请在 app_config.h 启用其一"
+#endif
+
 /* ---------- 实时采集频率默认值 ---------- */
 #define APP_DEFAULT_REAL_ENABLED      1         /* 0=禁用, 1=启用秒级采集 */
 #define APP_DEFAULT_REAL_FREQUENCY    5         /* 秒数 (1-10) */
 
 /* ---------- 产品复用配置默认值 ---------- */
-#define APP_DEFAULT_LCD_ENABLED       1         /* 0=无LCD产品, 1=有LCD产品 */
-#define APP_DEFAULT_SENSOR_COUNT      2         /* 1=单路传感器(进气端), 2=双路传感器 */
+#define APP_DEFAULT_LCD_ENABLED       0         /* 0=无LCD产品, 1=有LCD产品 */
+#define APP_DEFAULT_SENSOR_COUNT      1         /* 1=单路传感器(进气端), 2=双路传感器 */
 
 /* ---------- 阈值默认值 ---------- */
 /* 注: 阈值结构已拆分为 4 组独立配置, 默认值定义在 eeprom_config.h:

@@ -640,6 +640,11 @@
               <FilePath>..\..\..\Middle\fault_log.h</FilePath>
             </File>
             <File>
+              <FileName>valve_fsm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\valve_fsm.c</FilePath>
+            </File>
+            <File>
               <FileName>downlink.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\Middle\downlink.c</FilePath>

@@ -3,7 +3,36 @@
 #include "eeprom_config.h"
 #include "delay.h"
 #include "usart.h"
+#include "app_config.h"
 #include <string.h>
+
+#if defined(VALVE_MODE_NONBLOCKING)
+#include "valve_fsm.h"
+#include "bsp_wdt.h"
+
+// ==================== 阀门动作执行 (非阻塞状态机 + 协作式等待) ====================
+// 由 valve_fsm 状态机驱动; 本函数在等待期间持续喂狗并推进状态机,
+// 保持同步返回兼容接口 (valve_on/off/timeout/err); 异步路径走 valve_fsm_start 直调.
+const char* valve_execute(const char *action, uint8_t update_last_order)
+{
+    if(!valve_fsm_start(action, update_last_order, 0))
+    {
+        if(valve_fsm_result_pending())
+            return valve_result_str(valve_fsm_result());
+        return "valve_err";
+    }
+
+    /* 协作式等待: 移动期间推进状态机并喂狗, 防止 SWDT 被长动作饿死 */
+    while(valve_fsm_busy())
+    {
+        valve_fsm_poll();
+        bsp_wdt_sw_feed();
+    }
+
+    return valve_result_str(valve_fsm_result());
+}
+
+#else   /* VALVE_MODE_BLOCKING */
 
 // ==================== 阀门动作执行 (含valve_err检测) ====================
 const char* valve_execute(const char *action, uint8_t update_last_order)
@@ -82,6 +111,8 @@ const char* valve_execute(const char *action, uint8_t update_last_order)
         return "valve_err";
     return "valve_timeout";
 }
+
+#endif /* VALVE_MODE_* */
 
 // ==================== 阀门实时状态查询 (不动作) ====================
 const char* valve_get_status(void)

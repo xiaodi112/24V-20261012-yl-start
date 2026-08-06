@@ -49,6 +49,7 @@
 #include "bsp_motor.h"
 #include "bsp_pmu.h"
 #include "bsp_wdt.h"
+#include "sched.h"
 
 // ==================== 状态定??====================
 typedef enum {
@@ -652,7 +653,7 @@ static void do_realtime_check(void)
     uint8_t i;
 
     // === 最小初始化 (时钟恢复) ===
-    bsp_pmu_wakeup_reinit();
+    bsp_pmu_wakeup_reinit((sched_event_pending() & EVT_LPUART) ? 1 : 0);
 
     // 软件看门?? 实时采集路径??do_sleep 循环直接调用(不经主循环分??, 需独立使能
     // SysTick 已由 bsp_pmu_wakeup_reinit 重新配置; 回睡时 bsp_pmu_enter_deepsleep 会关闭
@@ -928,7 +929,7 @@ static void do_sleep(void)
             bsp_pmu_enter_deepsleep(fourG_keep_on, g_lcd_active, g_bt_on);
 
             // 唤醒: 按键或LPUART或RI或BLE连接 → 直接进入 STATE_WAKEUP
-            if(button_wakeup_flag || counter0 || ri_wakeup_flag || ble_connect_wakeup_flag)
+            if(sched_event_pending() & (EVT_BUTTON | EVT_LPUART | EVT_RI | EVT_BLE_CONN))
             {
                 app_state = STATE_WAKEUP;
                 return;
@@ -1011,7 +1012,7 @@ static void do_sleep(void)
     button_exti_init();
 
     // BLE连接事件未处理(与按键同时唤醒), 回到WAKEUP处理
-    if(ble_connect_wakeup_flag)
+    if(sched_event_pending() & EVT_BLE_CONN)
     {
         app_state = STATE_WAKEUP;
         return;
@@ -1057,10 +1058,12 @@ static void do_sleep(void)
     bsp_pmu_enter_deepsleep(fourG_keep_on, g_lcd_active, g_bt_on);
 
     // 实时采集循环: RTC秒级唤醒 → 检查是否到采集网格 → 否则最小采集回睡
-    while(g_real_enabled && rtc_alarm_flag && !counter0 && !ri_wakeup_flag && !button_wakeup_flag && !ble_connect_wakeup_flag)
+    while(g_real_enabled &&
+          (sched_event_pending() & EVT_RTC) &&
+          !(sched_event_pending() & (EVT_LPUART | EVT_RI | EVT_BUTTON | EVT_BLE_CONN)))
     {
         // 最小时钟恢????读RTC判断是否到达正常采集网格
-        bsp_pmu_wakeup_reinit();
+        bsp_pmu_wakeup_reinit((sched_event_pending() & EVT_LPUART) ? 1 : 0);
         rtc_register_sync_wait();
 
         {
@@ -1212,13 +1215,21 @@ static void do_button_short_press(void)
 // ==================== 唤醒恢复 ====================
 static void do_wakeup(void)
 {
+    /* 唤醒源事件快照 (语义与旧全局标志一致: 一次消费, 供本函数全程使用) */
+    uint32_t wake_events = sched_event_get();
+    uint8_t button_wakeup_flag = (wake_events & EVT_BUTTON) ? 1 : 0;
+    uint8_t counter0          = (wake_events & EVT_LPUART) ? 1 : 0;
+    uint8_t ri_wakeup_flag    = (wake_events & EVT_RI) ? 1 : 0;
+    uint8_t ble_connect_wakeup_flag = (wake_events & EVT_BLE_CONN) ? 1 : 0;
+    uint8_t rtc_alarm_flag    = (wake_events & EVT_RTC) ? 1 : 0;
+
     // 判断是否为纯周期采集定时唤醒 (非按键且非LPUART且非RI且非BLE连接)
     if(button_wakeup_flag == 0 && counter0 == 0 && ri_wakeup_flag == 0 && ble_connect_wakeup_flag == 0)
     {
         g_is_minimal_wakeup = 1;
         g_need_adc_sampling = 0;
         
-        bsp_pmu_wakeup_reinit();
+        bsp_pmu_wakeup_reinit(0);   /* 纯RTC唤醒分支, 无LPUART字节 */
         
         // 极简采集初始?? Systick、Debug 串口发?? PD4(SW_IIC)/IIC 引脚??PT304D_CollectAll 内部初始??
         systick_config();
@@ -1243,7 +1254,7 @@ static void do_wakeup(void)
         g_is_minimal_wakeup = 1;
         g_need_adc_sampling = 1;
         
-        bsp_pmu_wakeup_reinit();
+        bsp_pmu_wakeup_reinit(0);   /* 按键唤醒分支, 无LPUART字节 */
         trea_uart_init();
 		buzzer_init();
         button_exti_disable();
@@ -1257,7 +1268,7 @@ static void do_wakeup(void)
         g_is_minimal_wakeup = 0;
         g_need_adc_sampling = 1;
         
-        bsp_pmu_wakeup_reinit();
+        bsp_pmu_wakeup_reinit(counter0);   /* LPUART/RI唤醒分支 */
         sys_init();
         
         // 禁用按键EXTI(唤醒后立即禁止抨动重复触??

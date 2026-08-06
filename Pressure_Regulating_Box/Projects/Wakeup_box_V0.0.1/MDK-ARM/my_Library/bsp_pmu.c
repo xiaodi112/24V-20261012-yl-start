@@ -13,13 +13,9 @@
 #include "mygpio.h"
 #include "delay.h"
 #include "systick.h"
+#include "sched.h"
 #include "gd32l23x.h"
 #include "gd32l23x_pmu.h"
-
-/* ===================== 唤醒标志 (由 ISR 置位) ===================== */
-extern volatile uint8_t rtc_alarm_flag;
-extern volatile uint8_t button_wakeup_flag;
-extern volatile uint8_t ri_wakeup_flag;
 
 /* ===================== 时钟恢复 ===================== */
 static void bsp_clock_reconfig(void)
@@ -96,10 +92,8 @@ void bsp_pmu_low_power_pins(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t 
 /* ===================== 进入深休眠 ===================== */
 void bsp_pmu_enter_deepsleep(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t bt_on)
 {
-    counter0 = 0x00;
-    rtc_alarm_flag = 0;
-    button_wakeup_flag = 0;
-    ri_wakeup_flag = 0;
+    /* 清空历史事件, 避免陈旧唤醒源导致立即返回 */
+    sched_event_get();
 
     /* 软件看门狗: 进入深休眠前必须关闭 (深休眠期间 SysTick 停摆, 否则唤醒后计数错乱)
      * 所有进入深休眠的路径都经过本函数, 此处统一关闭可保证休眠期不被误复位 */
@@ -111,9 +105,8 @@ void bsp_pmu_enter_deepsleep(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t
     rcu_periph_clock_enable(RCU_PMU);
     pmu_to_deepsleepmode(PMU_LDNPDSP_LOWDRIVE, WFI_CMD, PMU_DEEPSLEEP);
 
-    /* 等待任意唤醒源 */
-    while((0x00 == counter0) && (0 == rtc_alarm_flag) &&
-          (0 == button_wakeup_flag) && (0 == ri_wakeup_flag));
+    /* 等待任意唤醒事件 (只读不消费, 由调用方快照处理) */
+    while(sched_event_pending() == 0);
 }
 
 /* ===================== 唤醒后系统重新初始化 ===================== */
@@ -135,7 +128,7 @@ void bsp_pmu_wakeup_reinit(void)
     ri_exti_disable();
 
     /* LPUART唤醒时: 消费触发唤醒的字节 (深休眠期间DMA未运行, 字节在RDATA中) */
-    if(counter0 != 0x00)
+    if(lpuart_woke)
     {
         if(RESET != lpuart_flag_get(LPUART0, LPUART_FLAG_RBNE))
             lpuart_data_receive(LPUART0);

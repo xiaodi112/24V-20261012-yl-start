@@ -14,9 +14,6 @@ rtc_alarm_struct  rtc_alarm;
 __IO uint32_t prescaler_a = 0, prescaler_s = 0;
 uint32_t RTCSRC_FLAG = 0;
 
-// RTC闹钟唤醒标志
-volatile uint8_t rtc_alarm_flag = 0;
-
 static void rtc_pre_config(void);
 
 // BCD <-> DEC 工具函数
@@ -403,7 +400,6 @@ void rtc_alarm_wakeup_init(void)
     // 使能RTC Alarm中断 (IRQ #57)
     nvic_irq_enable(RTC_Alarm_IRQn, 1);
 
-    rtc_alarm_flag = 0;
 }
 
 // ==============================
@@ -475,7 +471,6 @@ void rtc_set_next_alarm(uint16_t interval_minutes)
     rtc_alarm_enable(RTC_ALARM0);
 
     // 清零唤醒标志
-    rtc_alarm_flag = 0;
 
     printf_debug("[RTC] Next alarm: %02d:%02d:00 (in %d min)\r\n",
                  next_hour, next_min, wait_min);
@@ -525,7 +520,6 @@ void rtc_set_next_alarm_sec(uint8_t seconds)
     rtc_interrupt_enable(RTC_INT_ALARM0);
     rtc_alarm_enable(RTC_ALARM0);
 
-    rtc_alarm_flag = 0;
 
     printf_debug("[RTC] Next frequency: %02d:%02d:%02d (in %d sec)\r\n",
                  next_hour, next_min, next_sec, seconds);
@@ -577,7 +571,6 @@ uint32_t rtc_set_alarm_at_hhmmss(uint32_t target_hhmmss)
     rtc_interrupt_enable(RTC_INT_ALARM0);
     rtc_alarm_enable(RTC_ALARM0);
 
-    rtc_alarm_flag = 0;
 
     printf_debug("[RTC] Valve alarm: %02d:%02d:%02d (in %lu sec)\r\n",
                  t_hour, t_min, t_sec, wait_sec);

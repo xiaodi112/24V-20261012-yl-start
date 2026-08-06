@@ -730,6 +730,11 @@
               <FilePath>.\my_Library\bsp_wdt.c</FilePath>
             </File>
             <File>
+              <FileName>sched.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\my_Library\sched.c</FilePath>
+            </File>
+            <File>
               <FileName>fault_log.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\my_Library\fault_log.h</FilePath>

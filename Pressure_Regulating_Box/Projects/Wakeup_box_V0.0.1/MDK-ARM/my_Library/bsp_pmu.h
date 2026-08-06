@@ -17,8 +17,11 @@
  */
 void bsp_pmu_enter_deepsleep(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t bt_on);
 
-/* 唤醒后系统重新初始化 (时钟/SysTick/TIMER1/LPUART唤醒/RI) */
-void bsp_pmu_wakeup_reinit(void);
+/**
+ * 唤醒后系统重新初始化 (时钟/SysTick/TIMER1/LPUART唤醒/RI)
+ * @param lpuart_woke 本次是否为 LPUART 起始位唤醒 (需消费 RDATA 中的触发字节)
+ */
+void bsp_pmu_wakeup_reinit(uint8_t lpuart_woke);
 
 /* 深睡前将未使用 GPIO 置为 Analog (原 gpio_enter_low_power) */
 void bsp_pmu_low_power_pins(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t bt_on);

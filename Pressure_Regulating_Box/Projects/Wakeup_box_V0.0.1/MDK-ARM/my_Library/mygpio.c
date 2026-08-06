@@ -80,8 +80,6 @@ void gpio_init(void)
 }
 
 // ===================== PD0(Btn1) 按键唤醒 =====================
-volatile uint8_t button_wakeup_flag = 0;
-
 // 深休眠前调用: PD0输入+上拉 → EXTI0下降沿 → NVIC使能
 void button_exti_init(void)
 {
@@ -99,7 +97,6 @@ void button_exti_init(void)
     // NVIC使能 EXTI0 独立中断
     nvic_irq_enable(EXTI0_IRQn, 2);
 
-    button_wakeup_flag = 0;
 }
 
 // 唤醒后调用: 禁用EXTI0 + 清标志, 防止抖动重复触发
@@ -144,8 +141,6 @@ uint8_t ble_link_is_connected(void)
 }
 
 // ===================== PD2 蓝牙连接 EXTI 唤醒 =====================
-volatile uint8_t ble_connect_wakeup_flag = 0;
-
 // BLE开启时深休眠前调用: PD2 EXTI2 下降沿唤醒
 void ble_exti_init(void)
 {
@@ -163,7 +158,6 @@ void ble_exti_init(void)
     // GD32L23x: EXTI2独立中断
     nvic_irq_enable(EXTI2_IRQn, 2);
 
-    ble_connect_wakeup_flag = 0;
 }
 
 void ble_exti_disable(void)
@@ -176,8 +170,6 @@ void ble_exti_disable(void)
 // ===================== PA1 4G RI引脚 EXTI 唤醒 =====================
 // EC800E 收到服务器下行数据时 RI 脚产生低电平脉冲(~120ms)
 // PA1 下降沿中断唤醒 MCU, 与 LPUART 起始位唤醒互为冗余
-volatile uint8_t ri_wakeup_flag = 0;
-
 void ri_exti_init(void)
 {
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -193,7 +185,6 @@ void ri_exti_init(void)
 
     nvic_irq_enable(EXTI1_IRQn, 1);
 
-    ri_wakeup_flag = 0;
 }
 
 void ri_exti_disable(void)

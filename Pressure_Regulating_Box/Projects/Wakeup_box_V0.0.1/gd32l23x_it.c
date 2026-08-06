@@ -39,9 +39,8 @@ OF SUCH DAMAGE.
 #include "delay.h"
 #include "usart.h"
 #include "mygpio.h"
+#include "sched.h"
 
-__IO uint8_t counter0 = 0x00;
-extern volatile uint8_t rtc_alarm_flag;
 extern void led_spark(void);
 extern FlagStatus g_transfer_complete;
 
@@ -127,7 +126,7 @@ void LPUART_WKUP_IRQHandler(void)
 {
     if(SET == lpuart_interrupt_flag_get(LPUART0, LPUART_INT_FLAG_WU)) {
         lpuart_flag_clear(LPUART0, LPUART_FLAG_WU);
-        counter0 = 0x01;
+        sched_event_set(EVT_LPUART);
         exti_flag_clear(EXTI_28);
     }
 }
@@ -140,7 +139,7 @@ void RTC_Alarm_IRQHandler(void)
     if(RESET != rtc_flag_get(RTC_FLAG_ALARM0)) {
         rtc_flag_clear(RTC_FLAG_ALARM0);
         exti_flag_clear(EXTI_17);
-        rtc_alarm_flag = 1;
+        sched_event_set(EVT_RTC);
     }
 }
 
@@ -161,7 +160,7 @@ void EXTI0_IRQHandler(void)
         exti_flag_clear(EXTI_0);
         // 立即禁用EXTI0, 防止按键抖动期间重复进入ISR
         exti_interrupt_disable(EXTI_0);
-        button_wakeup_flag = 1;
+        sched_event_set(EVT_BUTTON);
     }
 }
 
@@ -173,7 +172,7 @@ void EXTI1_IRQHandler(void)
     if(RESET != exti_flag_get(EXTI_1)) {
         exti_flag_clear(EXTI_1);
         exti_interrupt_disable(EXTI_1);
-        ri_wakeup_flag = 1;
+        sched_event_set(EVT_RI);
     }
 }
 
@@ -185,7 +184,7 @@ void EXTI2_IRQHandler(void)
     if(RESET != exti_flag_get(EXTI_2)) {
         exti_flag_clear(EXTI_2);
         exti_interrupt_disable(EXTI_2);
-        ble_connect_wakeup_flag = 1;
+        sched_event_set(EVT_BLE_CONN);
     }
 }
 

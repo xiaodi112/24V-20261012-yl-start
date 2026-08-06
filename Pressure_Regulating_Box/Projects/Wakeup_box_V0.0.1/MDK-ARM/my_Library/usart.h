@@ -18,7 +18,6 @@ int printf_cat1(const char* fmt, ...);
 void lpuart_wakeup_init(void);
 // ===================== LPUART初始化 =====================
 void com_lpuart_init(void);
-extern __IO uint8_t counter0;  // LPUART唤醒标记
 
 // ===================== LPUART0 DMA接收 =====================
 void lpuart_dma_rx_init(void);                                     // DMA循环接收初始化(DMA_CH1)

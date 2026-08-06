@@ -45,15 +45,11 @@ uint8_t rtc_is_counting(void);
 // 返回距离目标时间的秒数 (0=已过/立即触发)
 uint32_t rtc_set_alarm_at_hhmmss(uint32_t target_hhmmss);
 
-// RTC闹钟唤醒标志（中断中置1）
-extern volatile uint8_t rtc_alarm_flag;
-
 // BCD <-> DEC 工具
 uint8_t bcd2dec(uint8_t bcd);
 uint8_t dec2bcd(uint8_t dec);
 
 #endif
-
 
 
 

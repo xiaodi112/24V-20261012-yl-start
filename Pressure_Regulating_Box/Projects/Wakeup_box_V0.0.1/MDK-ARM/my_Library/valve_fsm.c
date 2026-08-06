@@ -40,6 +40,7 @@ typedef struct {
     uint32_t hold_deadline_ms;  /* 压紧结束时刻 */
     ValveFsmResult_t result;
     uint8_t  result_pending;
+    ValveReportOrigin_t report_origin;
 } ValveFsmCtx_t;
 
 static ValveFsmCtx_t s_vfsm;
@@ -126,6 +127,20 @@ void valve_fsm_init(void)
 {
     memset(&s_vfsm, 0, sizeof(s_vfsm));
     s_vfsm.state = VALVE_FSM_IDLE;
+    s_vfsm.report_origin = VALVE_REPORT_NONE;
+}
+
+void valve_fsm_set_report(ValveReportOrigin_t origin)
+{
+    s_vfsm.report_origin = origin;
+}
+
+ValveReportOrigin_t valve_fsm_take_report(void)
+{
+    ValveReportOrigin_t o = s_vfsm.report_origin;
+
+    s_vfsm.report_origin = VALVE_REPORT_NONE;
+    return o;
 }
 
 uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t preempt)

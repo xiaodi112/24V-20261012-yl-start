@@ -480,10 +480,12 @@ const char* alarm_try_close_valve(ThresholdResult_t result)
                      g_abnormal_close, result, g_valve_pre_alarm_order);
         IIC_Init();
         bsp_motor_init();
-        const char *vr = valve_execute("close", 0);
+        /* 异步启动: 可抢占反方向动作, 结果由主循环完成钩子统一上报 */
+        valve_fsm_set_report(VALVE_REPORT_ALARM);
+        valve_fsm_start("close", 0, 1);
         g_valve_alarm_closed = 1;
         config_save_ext();
-        return vr;
+        return NULL;
     }
     return NULL;
 }
@@ -545,23 +547,10 @@ static void vtiming_execute_and_report(const char *action, uint8_t keep_online)
     ensure_full_init();
     IIC_Init();
     bsp_motor_init();
-    const char *vr = valve_execute(action, 1);
-    printf_debug("[SM] VTIMING: %s result=%s\r\n", action, vr);
-
-    if(keep_online)
-    {
-        EC801E_Wakeup();
-        if(EC801E_EnsureConnected() == EC_OK)
-            EC801E_PublishValveStatus(vr, g_valve_last_order);
-    }
-    else
-    {
-        int was_online;
-        int ec_ok = fourG_ensure_ready(&was_online);
-        if(ec_ok)
-            EC801E_PublishValveStatus(vr, g_valve_last_order);
-        fourG_restore(was_online, ec_ok);
-    }
+    /* 异步启动, 结果由主循环完成钩子上报 (keep_online 仅控制当前会话, 不再在此发布) */
+    valve_fsm_set_report(VALVE_REPORT_TIMING);
+    valve_fsm_start(action, 1, 0);
+    printf_debug("[SM] VTIMING: %s started (async)\r\n", action);
 }
 
 // ==================== 定时阀门: 周期检查(阻塞流程内也可调用) ====================
@@ -738,7 +727,9 @@ static void do_realtime_check(void)
 
             IIC_Init();
             bsp_motor_init();
-            const char *vr = valve_execute(restore_action, 0);
+            /* 异步启动恢复动作, 阀门状态由主循环完成钩子上报 */
+            valve_fsm_set_report(VALVE_REPORT_RESTORE);
+            valve_fsm_start(restore_action, 0, 0);
             g_valve_alarm_closed = 0;
             config_save_ext();
 
@@ -746,7 +737,6 @@ static void do_realtime_check(void)
             int ec_ok = fourG_ensure_ready(&was_online);
             if(ec_ok)
             {
-                EC801E_PublishValveStatus(vr, g_valve_last_order);
                 EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.last_normal_voltage);
                 publish_all_status(g_sensor.last_pressure_realtime, g_sensor.last_pressure_realtime2);
             }
@@ -1756,7 +1746,6 @@ static void do_collect(void)
     {
         ensure_full_init();
         const char *restore_action = NULL;
-        const char *vr = NULL;
 
         // (a) 阀门恢??(仅当之前自动关阀时执??
         if(g_valve_alarm_closed)
@@ -1764,7 +1753,9 @@ static void do_collect(void)
             restore_action = (g_valve_pre_alarm_order == 1) ? "open" : "close";
             printf_debug("[SM] ALARM recovered, restoring valve to %s (pre=%d)\r\n",
                          restore_action, g_valve_pre_alarm_order);
-            vr = valve_execute(restore_action, 0);
+            /* 异步启动恢复动作, 阀门状态由主循环完成钩子上报 */
+            valve_fsm_set_report(VALVE_REPORT_RESTORE);
+            valve_fsm_start(restore_action, 0, 0);
             g_valve_alarm_closed = 0;
             config_save_ext();   // 持久?? 清除恢复标志
         }
@@ -1779,10 +1770,6 @@ static void do_collect(void)
             int ec_ok = fourG_ensure_ready(&was_online);
             if(ec_ok)
             {
-                if(vr != NULL)
-                {
-                    EC801E_PublishValveStatus(vr, g_valve_last_order);
-                }
                 EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.voltage);
                 publish_all_status(g_sensor.last_pressure_collect, g_sensor.last_pressure_collect2);
             }
@@ -2327,7 +2314,6 @@ static void debug_check_cmd(void)
         if(strncmp(line_buf, "valve:", 6) == 0)
         {
             const char *action = line_buf + 6;  // "open" ??"close"
-            const char *result = valve_execute(action, 1);
             // 用户主动操作清除报警恢复标志
             if(g_valve_alarm_closed)
             {
@@ -2336,7 +2322,9 @@ static void debug_check_cmd(void)
                 config_save_ext();
                 printf_debug("  cleared alarm_closed flag (user override)\r\n");
             }
-            printf_debug("  valve(%s) -> %s  last_order=%d\r\n", action, result, g_valve_last_order);
+            valve_fsm_set_report(VALVE_REPORT_DEBUG);
+            valve_fsm_start(action, 1, 0);
+            printf_debug("  valve(%s) started (async), last_order=%d\r\n", action, g_valve_last_order);
             continue;
         }
         if(strncmp(line_buf, "first_ip:", 9) == 0)
@@ -2698,8 +2686,20 @@ init_skip_report:
         valve_fsm_poll();
         if(valve_fsm_result_pending())
         {
-            printf_debug("[SM] Valve async result: %s\r\n",
-                         valve_result_str(valve_fsm_result()));
+            ValveFsmResult_t vr = valve_fsm_result();
+            ValveReportOrigin_t origin = valve_fsm_take_report();
+            printf_debug("[SM] Valve async result: %s (origin=%d)\r\n",
+                         valve_result_str(vr), (int)origin);
+
+            /* 需上报来源: 用独立 4G 会话补发阀门状态 (DEBUG 仅打印) */
+            if(origin != VALVE_REPORT_NONE && origin != VALVE_REPORT_DEBUG)
+            {
+                int was_online;
+                int ec_ok = fourG_ensure_ready(&was_online);
+                if(ec_ok)
+                    EC801E_PublishValveStatus(valve_result_str(vr), g_valve_last_order);
+                fourG_restore(was_online, ec_ok);
+            }
         }
 
         // ISR置位后立即响应debug串口配置命令

@@ -33,6 +33,16 @@ typedef enum {
     VALVE_FSM_RESULT_ERR       /* valve_err */
 } ValveFsmResult_t;
 
+/* ==================== 异步上报来源 ==================== */
+typedef enum {
+    VALVE_REPORT_NONE = 0,
+    VALVE_REPORT_DOWNLINK,   /* 下行指令 */
+    VALVE_REPORT_TIMING,     /* 定时开关阀 */
+    VALVE_REPORT_ALARM,      /* 告警强制关阀 */
+    VALVE_REPORT_RESTORE,    /* 异常恢复开阀 */
+    VALVE_REPORT_DEBUG       /* 调试命令 (仅打印, 不上报) */
+} ValveReportOrigin_t;
+
 /* ==================== 接口 ==================== */
 
 /* 初始化 (上电调用一次) */
@@ -46,6 +56,12 @@ void valve_fsm_init(void);
  * @return 1=已接受, 0=拒绝 (动作无效/电机禁用/双限位故障/忙且不抢占)
  */
 uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t preempt);
+
+/* 注册完成上报来源 (start 前调用; 完成时由主循环取走) */
+void valve_fsm_set_report(ValveReportOrigin_t origin);
+
+/* 读取并清除上报来源 (动作完成时) */
+ValveReportOrigin_t valve_fsm_take_report(void);
 
 /* 主循环周期调用: 推进状态机 (限位/超时/压紧/故障处理) */
 void valve_fsm_poll(void);

@@ -371,7 +371,7 @@ void slcd_seg_configuration(void)
 void slcd_seg_flush(void)
 {
     while(slcd_flag_get(SLCD_FLAG_UPR));
-    /* COM重映射: Glass COM4↔COM1, COM3↔COM2
+    /* COM重映射: Glass COM4<->COM1, COM3<->COM2
      * SLCD COM0→Glass COM4(shadow[3]), COM1→COM3(shadow[2]),
      * COM2→COM2(shadow[1]), COM3→COM1(shadow[0]) */
     SLCD_DATA0 = s_shadow[3];
@@ -948,7 +948,6 @@ void slcd_seg_clear_all(void)
     s_shadow[3] = 0;
     slcd_auto_flush();
 }
-
 
 
 

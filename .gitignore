@@ -20,15 +20,14 @@ GD32L23x_Firmware_Library/
 JLinkLog.txt
 JLink*
 build_output.log
+build_verify.log
 RTE/
 Listings/
 Objects/
 DebugConfig/
 
 # IDE
-*.uvprojx
 *.uvoptx
-*.uvproj
 .vs/
 .idea/
 

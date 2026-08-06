@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file  boot_main.c
  * @brief Bootloader 主入口
  *

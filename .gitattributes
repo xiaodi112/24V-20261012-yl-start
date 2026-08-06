@@ -1,0 +1,6 @@
+# 工作区保持 GBK 编码 (Keil 兼容), 仓库内统一 UTF-8 存储
+# Working tree stays GBK; git stores UTF-8 blobs internally.
+# 说明: 不要修改 GBK 中文注释的编码, 新增/修改源码文件请以 GBK 保存.
+# 注意: *.md 文档不在此列 (部分文档含 GBK 无法表示的符号, 保持原样).
+*.c    working-tree-encoding=GBK
+*.h    working-tree-encoding=GBK

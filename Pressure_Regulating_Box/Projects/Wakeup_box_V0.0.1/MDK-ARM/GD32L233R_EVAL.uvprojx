@@ -595,29 +595,29 @@
           <GroupName>App</GroupName>
           <Files>
             <File>
-            <FileName>valve.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\App\valve.c</FilePath>
+              <FileName>valve.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\App\valve.c</FilePath>
             </File>
             <File>
-            <FileName>valve.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\App\valve.h</FilePath>
+              <FileName>valve.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\App\valve.h</FilePath>
             </File>
             <File>
-            <FileName>led.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\App\led.c</FilePath>
+              <FileName>led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\App\led.c</FilePath>
             </File>
             <File>
-            <FileName>buzzer.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\App\buzzer.c</FilePath>
+              <FileName>buzzer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\App\buzzer.c</FilePath>
             </File>
             <File>
-            <FileName>lcd_ui.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\App\lcd_ui.c</FilePath>
+              <FileName>lcd_ui.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\App\lcd_ui.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -625,74 +625,74 @@
           <GroupName>Middle</GroupName>
           <Files>
             <File>
-            <FileName>fault_log.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\fault_log.c</FilePath>
+              <FileName>fault_log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\fault_log.c</FilePath>
             </File>
             <File>
-            <FileName>sched.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\sched.c</FilePath>
+              <FileName>sched.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\sched.c</FilePath>
             </File>
             <File>
-            <FileName>valve_fsm.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\valve_fsm.c</FilePath>
+              <FileName>valve_fsm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\valve_fsm.c</FilePath>
             </File>
             <File>
-            <FileName>fault_log.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Middle\fault_log.h</FilePath>
+              <FileName>fault_log.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Middle\fault_log.h</FilePath>
             </File>
             <File>
-            <FileName>downlink.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\downlink.c</FilePath>
+              <FileName>downlink.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\downlink.c</FilePath>
             </File>
             <File>
-            <FileName>downlink.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Middle\downlink.h</FilePath>
+              <FileName>downlink.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Middle\downlink.h</FilePath>
             </File>
             <File>
-            <FileName>eeprom_config.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\eeprom_config.c</FilePath>
+              <FileName>eeprom_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\eeprom_config.c</FilePath>
             </File>
             <File>
-            <FileName>eeprom_config.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Middle\eeprom_config.h</FilePath>
+              <FileName>eeprom_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Middle\eeprom_config.h</FilePath>
             </File>
             <File>
-            <FileName>threshold.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\threshold.c</FilePath>
+              <FileName>threshold.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\threshold.c</FilePath>
             </File>
             <File>
-            <FileName>ota_app.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\ota_app.c</FilePath>
+              <FileName>ota_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\ota_app.c</FilePath>
             </File>
             <File>
-            <FileName>ota_app.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Middle\ota_app.h</FilePath>
+              <FileName>ota_app.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Middle\ota_app.h</FilePath>
             </File>
             <File>
-            <FileName>ota_info.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Middle\ota_info.h</FilePath>
+              <FileName>ota_info.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Middle\ota_info.h</FilePath>
             </File>
             <File>
-            <FileName>json_builder.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\json_builder.c</FilePath>
+              <FileName>json_builder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\json_builder.c</FilePath>
             </File>
             <File>
-            <FileName>eeprom_history.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Middle\eeprom_history.c</FilePath>
+              <FileName>eeprom_history.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Middle\eeprom_history.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -700,89 +700,89 @@
           <GroupName>BSP</GroupName>
           <Files>
             <File>
-            <FileName>usart.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\usart.c</FilePath>
+              <FileName>usart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\usart.c</FilePath>
             </File>
             <File>
-            <FileName>usart.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\BSP\usart.h</FilePath>
+              <FileName>usart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\BSP\usart.h</FilePath>
             </File>
             <File>
-            <FileName>delay.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\delay.c</FilePath>
+              <FileName>delay.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\delay.c</FilePath>
             </File>
             <File>
-            <FileName>delay.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\BSP\delay.h</FilePath>
+              <FileName>delay.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\BSP\delay.h</FilePath>
             </File>
             <File>
-            <FileName>tim.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\tim.c</FilePath>
+              <FileName>tim.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\tim.c</FilePath>
             </File>
             <File>
-            <FileName>tim.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\BSP\tim.h</FilePath>
+              <FileName>tim.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\BSP\tim.h</FilePath>
             </File>
             <File>
-            <FileName>mygpio.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\mygpio.c</FilePath>
+              <FileName>mygpio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\mygpio.c</FilePath>
             </File>
             <File>
-            <FileName>mygpio.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\BSP\mygpio.h</FilePath>
+              <FileName>mygpio.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\BSP\mygpio.h</FilePath>
             </File>
             <File>
-            <FileName>motor.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\motor.c</FilePath>
+              <FileName>motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\motor.c</FilePath>
             </File>
             <File>
-            <FileName>motor.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\BSP\motor.h</FilePath>
+              <FileName>motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\BSP\motor.h</FilePath>
             </File>
             <File>
-            <FileName>bsp_motor.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\bsp_motor.c</FilePath>
+              <FileName>bsp_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\bsp_motor.c</FilePath>
             </File>
             <File>
-            <FileName>bsp_motor.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\BSP\bsp_motor.h</FilePath>
+              <FileName>bsp_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\BSP\bsp_motor.h</FilePath>
             </File>
             <File>
-            <FileName>bsp_pmu.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\bsp_pmu.c</FilePath>
+              <FileName>bsp_pmu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\bsp_pmu.c</FilePath>
             </File>
             <File>
-            <FileName>bsp_wdt.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\bsp_wdt.c</FilePath>
+              <FileName>bsp_wdt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\bsp_wdt.c</FilePath>
             </File>
             <File>
-            <FileName>adc_bat.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\adc_bat.c</FilePath>
+              <FileName>adc_bat.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\adc_bat.c</FilePath>
             </File>
             <File>
-            <FileName>adc_bat.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\BSP\adc_bat.h</FilePath>
+              <FileName>adc_bat.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\BSP\adc_bat.h</FilePath>
             </File>
             <File>
-            <FileName>slcd_seg.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\BSP\slcd_seg.c</FilePath>
+              <FileName>slcd_seg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\BSP\slcd_seg.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -790,59 +790,59 @@
           <GroupName>Drivers</GroupName>
           <Files>
             <File>
-            <FileName>i2c_sensor.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Drivers\i2c_sensor.c</FilePath>
+              <FileName>i2c_sensor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Drivers\i2c_sensor.c</FilePath>
             </File>
             <File>
-            <FileName>i2c_sensor.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Drivers\i2c_sensor.h</FilePath>
+              <FileName>i2c_sensor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Drivers\i2c_sensor.h</FilePath>
             </File>
             <File>
-            <FileName>ec800e.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Drivers\ec800e.c</FilePath>
+              <FileName>ec800e.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Drivers\ec800e.c</FilePath>
             </File>
             <File>
-            <FileName>ec800e.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Drivers\ec800e.h</FilePath>
+              <FileName>ec800e.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Drivers\ec800e.h</FilePath>
             </File>
             <File>
-            <FileName>m24m01.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Drivers\m24m01.c</FilePath>
+              <FileName>m24m01.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Drivers\m24m01.c</FilePath>
             </File>
             <File>
-            <FileName>m24m01.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Drivers\m24m01.h</FilePath>
+              <FileName>m24m01.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Drivers\m24m01.h</FilePath>
             </File>
             <File>
-            <FileName>PT_304_35.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Drivers\PT_304_35.c</FilePath>
+              <FileName>PT_304_35.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Drivers\PT_304_35.c</FilePath>
             </File>
             <File>
-            <FileName>PT_304_35.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Drivers\PT_304_35.h</FilePath>
+              <FileName>PT_304_35.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Drivers\PT_304_35.h</FilePath>
             </File>
             <File>
-            <FileName>i2c_eeprom.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Drivers\i2c_eeprom.c</FilePath>
+              <FileName>i2c_eeprom.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Drivers\i2c_eeprom.c</FilePath>
             </File>
             <File>
-            <FileName>i2c_eeprom.h</FileName>
-            <FileType>5</FileType>
-            <FilePath>..\..\..\Drivers\i2c_eeprom.h</FilePath>
+              <FileName>i2c_eeprom.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\Drivers\i2c_eeprom.h</FilePath>
             </File>
             <File>
-            <FileName>ble_ota.c</FileName>
-            <FileType>1</FileType>
-            <FilePath>..\..\..\Drivers\ble_ota.c</FilePath>
+              <FileName>ble_ota.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Drivers\ble_ota.c</FilePath>
             </File>
           </Files>
         </Group>

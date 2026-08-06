@@ -17,6 +17,8 @@ GD32L23x_Firmware_Library/
 *.uvguix.*
 *.uvoptx
 *.scvd
+Tests/tests.exe
+Tests/tests
 JLinkLog.txt
 JLink*
 build_output.log

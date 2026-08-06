@@ -9,8 +9,8 @@
  *   EEPROM_DRV_M24M01  : M24M01-RMN6P 128KB, 256B页, 17位地址(A16)
  *   EEPROM_DRV_AT24C64 : AT24C64 8KB, 32B页, 13位地址
  * ============================================================ */
-#define EEPROM_DRV_M24M01
-//#define EEPROM_DRV_AT24C64
+//#define EEPROM_DRV_M24M01
+#define EEPROM_DRV_AT24C64
 
 #if defined(EEPROM_DRV_M24M01) && defined(EEPROM_DRV_AT24C64)
   #error "EEPROM: 只能选择一种芯片型号 (EEPROM_DRV_M24M01 / EEPROM_DRV_AT24C64)"

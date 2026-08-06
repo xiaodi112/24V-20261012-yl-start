@@ -10,7 +10,7 @@
 #include "motor.h"
 #include "gd32l23x.h"
 
-uint8_t g_motor_enabled = 1;
+uint8_t g_motor_enabled = 0;
 
 void bsp_motor_init(void)
 {

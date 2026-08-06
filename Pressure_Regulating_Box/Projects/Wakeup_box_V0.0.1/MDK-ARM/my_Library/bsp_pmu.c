@@ -110,7 +110,7 @@ void bsp_pmu_enter_deepsleep(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t
 }
 
 /* ===================== 唤醒后系统重新初始化 ===================== */
-void bsp_pmu_wakeup_reinit(void)
+void bsp_pmu_wakeup_reinit(uint8_t lpuart_woke)
 {
     /* 恢复时钟 + 滴答定时器 + TIMER1（必须最先执行） */
     bsp_clock_reconfig();

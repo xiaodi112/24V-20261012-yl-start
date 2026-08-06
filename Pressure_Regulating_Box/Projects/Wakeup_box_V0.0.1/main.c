@@ -50,7 +50,6 @@
 #include "bsp_pmu.h"
 #include "bsp_wdt.h"
 #include "sched.h"
-#include "valve_fsm.h"
 
 // ==================== 状态定??====================
 typedef enum {
@@ -480,12 +479,10 @@ const char* alarm_try_close_valve(ThresholdResult_t result)
                      g_abnormal_close, result, g_valve_pre_alarm_order);
         IIC_Init();
         bsp_motor_init();
-        /* 异步启动: 可抢占反方向动作, 结果由主循环完成钩子统一上报 */
-        valve_fsm_set_report(VALVE_REPORT_ALARM);
-        valve_fsm_start("close", 0, 1);
+        const char *vr = valve_execute("close", 0);
         g_valve_alarm_closed = 1;
         config_save_ext();
-        return NULL;
+        return vr;
     }
     return NULL;
 }
@@ -547,10 +544,23 @@ static void vtiming_execute_and_report(const char *action, uint8_t keep_online)
     ensure_full_init();
     IIC_Init();
     bsp_motor_init();
-    /* 异步启动, 结果由主循环完成钩子上报 (keep_online 仅控制当前会话, 不再在此发布) */
-    valve_fsm_set_report(VALVE_REPORT_TIMING);
-    valve_fsm_start(action, 1, 0);
-    printf_debug("[SM] VTIMING: %s started (async)\r\n", action);
+    const char *vr = valve_execute(action, 1);
+    printf_debug("[SM] VTIMING: %s result=%s\r\n", action, vr);
+
+    if(keep_online)
+    {
+        EC801E_Wakeup();
+        if(EC801E_EnsureConnected() == EC_OK)
+            EC801E_PublishValveStatus(vr, g_valve_last_order);
+    }
+    else
+    {
+        int was_online;
+        int ec_ok = fourG_ensure_ready(&was_online);
+        if(ec_ok)
+            EC801E_PublishValveStatus(vr, g_valve_last_order);
+        fourG_restore(was_online, ec_ok);
+    }
 }
 
 // ==================== 定时阀门: 周期检查(阻塞流程内也可调用) ====================
@@ -610,10 +620,6 @@ static void realtime_enter_sleep(void)
     if(!sleep_gate_rtc_ok())
         return;   // RTC 不走时禁止深睡, 降级为活跃采集
 
-    /* 阀门动作进行中: 禁止深睡 (深睡会切断电机并让限位引脚读失效), 由主循环 poll 推进 */
-    if(valve_fsm_busy())
-        return;
-
     gpio_set_i2c_power(0);
     rtc_alarm_wakeup_init();
     rtc_set_next_alarm_sec(g_real_frequency);
@@ -648,7 +654,6 @@ static void do_realtime_check(void)
 
     // === 最小初始化 (时钟恢复) ===
     bsp_pmu_wakeup_reinit((sched_event_pending() & EVT_LPUART) ? 1 : 0);
-    valve_fsm_redrive();   /* 唤醒自愈: 若动作被深睡打断则恢复驱动 */
 
     // 软件看门?? 实时采集路径??do_sleep 循环直接调用(不经主循环分??, 需独立使能
     // SysTick 已由 bsp_pmu_wakeup_reinit 重新配置; 回睡时 bsp_pmu_enter_deepsleep 会关闭
@@ -732,9 +737,7 @@ static void do_realtime_check(void)
 
             IIC_Init();
             bsp_motor_init();
-            /* 异步启动恢复动作, 阀门状态由主循环完成钩子上报 */
-            valve_fsm_set_report(VALVE_REPORT_RESTORE);
-            valve_fsm_start(restore_action, 0, 0);
+            const char *vr = valve_execute(restore_action, 0);
             g_valve_alarm_closed = 0;
             config_save_ext();
 
@@ -742,6 +745,7 @@ static void do_realtime_check(void)
             int ec_ok = fourG_ensure_ready(&was_online);
             if(ec_ok)
             {
+                EC801E_PublishValveStatus(vr, g_valve_last_order);
                 EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.last_normal_voltage);
                 publish_all_status(g_sensor.last_pressure_realtime, g_sensor.last_pressure_realtime2);
             }
@@ -861,12 +865,6 @@ static void do_sleep(void)
 {
     int fourG_keep_on = 0;
 
-    /* 阀门动作进行中: 不允许深睡, 转活跃循环由主循环 poll 推进 */
-    if(valve_fsm_busy())
-    {
-        app_state = STATE_WAKEUP;
-        return;
-    }
 
     // 深睡前固定引脚清理 (电机/蜂鸣器/调试串口/I2C电源)
     bsp_motor_enable(0);
@@ -1066,7 +1064,6 @@ static void do_sleep(void)
     {
         // 最小时钟恢????读RTC判断是否到达正常采集网格
         bsp_pmu_wakeup_reinit((sched_event_pending() & EVT_LPUART) ? 1 : 0);
-        valve_fsm_redrive();   /* 唤醒自愈 */
         rtc_register_sync_wait();
 
         {
@@ -1233,7 +1230,6 @@ static void do_wakeup(void)
         g_need_adc_sampling = 0;
         
         bsp_pmu_wakeup_reinit(0);   /* 纯RTC唤醒分支, 无LPUART字节 */
-        valve_fsm_redrive();   /* 唤醒自愈 */
         
         // 极简采集初始?? Systick、Debug 串口发?? PD4(SW_IIC)/IIC 引脚??PT304D_CollectAll 内部初始??
         systick_config();
@@ -1259,7 +1255,6 @@ static void do_wakeup(void)
         g_need_adc_sampling = 1;
         
         bsp_pmu_wakeup_reinit(0);   /* 按键唤醒分支, 无LPUART字节 */
-        valve_fsm_redrive();   /* 唤醒自愈 */
         trea_uart_init();
 		buzzer_init();
         button_exti_disable();
@@ -1274,7 +1269,6 @@ static void do_wakeup(void)
         g_need_adc_sampling = 1;
         
         bsp_pmu_wakeup_reinit(counter0);   /* LPUART/RI唤醒分支 */
-        valve_fsm_redrive();   /* 唤醒自愈 */
         sys_init();
         
         // 禁用按键EXTI(唤醒后立即禁止抨动重复触??
@@ -1755,6 +1749,7 @@ static void do_collect(void)
     {
         ensure_full_init();
         const char *restore_action = NULL;
+        const char *vr = NULL;
 
         // (a) 阀门恢??(仅当之前自动关阀时执??
         if(g_valve_alarm_closed)
@@ -1762,9 +1757,7 @@ static void do_collect(void)
             restore_action = (g_valve_pre_alarm_order == 1) ? "open" : "close";
             printf_debug("[SM] ALARM recovered, restoring valve to %s (pre=%d)\r\n",
                          restore_action, g_valve_pre_alarm_order);
-            /* 异步启动恢复动作, 阀门状态由主循环完成钩子上报 */
-            valve_fsm_set_report(VALVE_REPORT_RESTORE);
-            valve_fsm_start(restore_action, 0, 0);
+            vr = valve_execute(restore_action, 0);
             g_valve_alarm_closed = 0;
             config_save_ext();   // 持久?? 清除恢复标志
         }
@@ -1779,6 +1772,10 @@ static void do_collect(void)
             int ec_ok = fourG_ensure_ready(&was_online);
             if(ec_ok)
             {
+                if(vr != NULL)
+                {
+                    EC801E_PublishValveStatus(vr, g_valve_last_order);
+                }
                 EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.voltage);
                 publish_all_status(g_sensor.last_pressure_collect, g_sensor.last_pressure_collect2);
             }
@@ -2323,6 +2320,7 @@ static void debug_check_cmd(void)
         if(strncmp(line_buf, "valve:", 6) == 0)
         {
             const char *action = line_buf + 6;  // "open" ??"close"
+            const char *result = valve_execute(action, 1);
             // 用户主动操作清除报警恢复标志
             if(g_valve_alarm_closed)
             {
@@ -2331,9 +2329,7 @@ static void debug_check_cmd(void)
                 config_save_ext();
                 printf_debug("  cleared alarm_closed flag (user override)\r\n");
             }
-            valve_fsm_set_report(VALVE_REPORT_DEBUG);
-            valve_fsm_start(action, 1, 0);
-            printf_debug("  valve(%s) started (async), last_order=%d\r\n", action, g_valve_last_order);
+            printf_debug("  valve(%s) -> %s  last_order=%d\r\n", action, result, g_valve_last_order);
             continue;
         }
         if(strncmp(line_buf, "first_ip:", 9) == 0)
@@ -2479,8 +2475,6 @@ int main(void)
 
     rtc_init_all();
     fault_log_init();   // 复位原因/故障记录落盘 (RTC 就绪, 时间戳有效)
-    valve_fsm_init();
-    valve_fsm_recover();   // 失电恢复: 续走中断的阀门动作 (同步完成)
     rtc_alarm_wakeup_init();
 	
 	
@@ -2691,26 +2685,6 @@ init_skip_report:
     // ==================== 状态机主循??====================
     while(1)
     {
-        /* 阀门状态机推进 (非阻塞动作轮询) */
-        valve_fsm_poll();
-        if(valve_fsm_result_pending())
-        {
-            ValveFsmResult_t vr = valve_fsm_result();
-            ValveReportOrigin_t origin = valve_fsm_take_report();
-            printf_debug("[SM] Valve async result: %s (origin=%d)\r\n",
-                         valve_result_str(vr), (int)origin);
-
-            /* 需上报来源: 用独立 4G 会话补发阀门状态 (DEBUG 仅打印) */
-            if(origin != VALVE_REPORT_NONE && origin != VALVE_REPORT_DEBUG)
-            {
-                int was_online;
-                int ec_ok = fourG_ensure_ready(&was_online);
-                if(ec_ok)
-                    EC801E_PublishValveStatus(valve_result_str(vr), g_valve_last_order);
-                fourG_restore(was_online, ec_ok);
-            }
-        }
-
         // ISR置位后立即响应debug串口配置命令
         if(debug_rx_line_ready())
             debug_check_cmd();

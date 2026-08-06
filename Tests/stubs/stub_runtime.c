@@ -40,6 +40,11 @@ uint32_t trea_millis(void)
     return test_millis_now;
 }
 
+void trea_delay_ms(uint32_t ms)
+{
+    test_millis_now += ms;   /* 模拟时间流逝 (阻塞式 valve_execute 的压紧延时使用) */
+}
+
 /* ==================== bsp_motor 桩 ==================== */
 uint8_t g_motor_enabled = 1;
 

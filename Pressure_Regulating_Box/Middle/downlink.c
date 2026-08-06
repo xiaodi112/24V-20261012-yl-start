@@ -15,7 +15,6 @@
 #include "adc_bat.h"
 #include "ota_app.h"
 #include "valve.h"
-#include "valve_fsm.h"
 #include "usart.h"
 #include "delay.h"
 #include "tim.h"
@@ -283,10 +282,9 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
 
     if(strcmp(id_val, "valve") == 0)
     {
-        // ---- 阀门控制 (异步启动, 结果由主循环完成钩子上报) ----
-        valve_fsm_set_report(VALVE_REPORT_DOWNLINK);
-        valve_fsm_start(cmd_val, 1, 0);
-        printf_debug("[SM] Valve cmd started (async): %s\r\n", cmd_val);
+        // ---- 阀门控制 ----
+        const char *result = valve_execute(cmd_val, 1);
+        printf_debug("[SM] Valve result: %s\r\n", result);
 
         // 用户主动操作清除报警恢复标志, 避免后续传感器恢复时卷回用户动作
         if(g_valve_alarm_closed)
@@ -299,11 +297,12 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
 
         if(EC801E_EnsureConnected() == EC_OK)
         {
+            EC801E_PublishValveStatus(result, g_valve_last_order);
             trea_delay_ms(300);
-            publish_feedback(23);   /* 指令已接受回执; 阀门结果稍后上报 */
+            publish_feedback(23);
         }
         else
-            printf_debug("[SM] Valve feedback skipped: MQTT not connected\r\n");
+            printf_debug("[SM] Valve publish skipped: MQTT not connected\r\n");
     }
     else if(strcmp(id_val, "sensor_read") == 0 || strcmp(id_val, "get_pressure") == 0)
     {

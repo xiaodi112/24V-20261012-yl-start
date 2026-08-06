@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "valve.h"
-#include "valve_fsm.h"
 #include "eeprom_config.h"
 
 extern int g_test_failures;
@@ -18,7 +17,6 @@ extern ValveDelayConfig_t g_vdelay;
 
 static void reset(void)
 {
-    valve_fsm_init();
     g_motor_enabled = 1;
     test_limit_open = 0;
     test_limit_close = 0;
@@ -60,12 +58,12 @@ static void test_motor_enabled_status(void)
     test_limit_open = 0; test_limit_close = 0;
     CHECK(strcmp(valve_get_status(), "valve_timeout") == 0);
 
-    /* 动作正常: 开阀到位 → valve_on */
+    /* 动作正常 (阻塞式): 目标限位已到位 → valve_on */
     reset();
-    test_limit_open = 1;               /* 已在开阀位: 启动即完成 */
-    CHECK(valve_fsm_start("open", 1, 0) == 1);
-    valve_fsm_poll();
-    CHECK(strcmp(valve_result_str(valve_fsm_result()), "valve_on") == 0);
+    test_limit_open = 1;
+    CHECK(strcmp(valve_execute("open", 1), "valve_on") == 0);
+    CHECK(g_valve_last_order == 1);
+    CHECK(test_motor_enable == 0);
 }
 
 void test_valve_all(void)

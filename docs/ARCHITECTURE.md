@@ -59,7 +59,22 @@ graph TD
 
 ## 7. 遗留事项
 
-- 目录物理重组 (App/Middle/BSP/Drivers 目录迁移) 未执行, 当前仍平铺于 my_Library;
+- 目录已按 App/Middle/BSP/Drivers 分层 (P4-2), 旧的 my_Library 平铺目录已删除;
 - downlink 与 4G 协议层未抽成独立 proto 模块;
 - 调度器仍为最小事件位, 无定时器任务表;
 - `.uvoptx` 不纳入版本管理 (含用户调试器配置).
+
+## 8. 目录结构 (P4-2 之后)
+
+```
+Pressure_Regulating_Box/
+├── App/        # 业务: valve / lcd_ui / led / buzzer / main.h
+├── Middle/     # 调度/存储/协议/逻辑: sched / fault_log / threshold /
+│               #   valve_fsm / downlink / ota_app / eeprom_config / json...
+├── BSP/        # 板级: board.h / mygpio / usart / tim / slcd / adc /
+│               #   bsp_motor / bsp_pmu / bsp_wdt / delay / motor(PWM)
+├── Drivers/    # 器件: PT304D / EC800E / BLE / M24M01 / I2C位操作
+├── Utilities/
+├── Docs/
+└── Projects/   # Keil 工程 (uvprojx 已纳入版本管理)
+```

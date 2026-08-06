@@ -1,6 +1,4 @@
 #include "mygpio.h"
-#include "eeprom_config.h"
-#include "lcd_ui.h"
 #include "board.h"
 
 // ===================== 板级输出控制 (引脚见 board.h) =====================

@@ -31,4 +31,5 @@ run_tests.bat
 
 - `stubs/` 提供芯片头文件桩与运行时桩 (bsp_motor/bsp_wdt/EEPROM/fault_log/config/printf/时间),
   测试通过 `test_*` 全局控制限位、时间与电机状态, 从而驱动状态机。
-- 被测模块源码直接取自 `my_Library`, 不做复制, 保证测试对象就是交付对象。
+- 被测模块源码直接取自 `Middle/` (阈值/JSON/阀门状态机/环形缓冲), 不做复制,
+  保证测试对象就是交付对象。

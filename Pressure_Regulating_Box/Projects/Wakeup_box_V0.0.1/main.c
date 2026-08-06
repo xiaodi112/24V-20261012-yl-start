@@ -50,6 +50,7 @@
 #include "bsp_pmu.h"
 #include "bsp_wdt.h"
 #include "sched.h"
+#include "valve_fsm.h"
 
 // ==================== 状态定??====================
 typedef enum {
@@ -865,6 +866,12 @@ static void do_sleep(void)
 {
     int fourG_keep_on = 0;
 
+    /* 阀门动作进行中: 不允许深睡, 转活跃循环由主循环 poll 推进 */
+    if(valve_fsm_busy())
+    {
+        app_state = STATE_WAKEUP;
+        return;
+    }
 
     // 深睡前固定引脚清理 (电机/蜂鸣器/调试串口/I2C电源)
     bsp_motor_enable(0);
@@ -2475,6 +2482,8 @@ int main(void)
 
     rtc_init_all();
     fault_log_init();   // 复位原因/故障记录落盘 (RTC 就绪, 时间戳有效)
+    valve_fsm_init();
+    valve_fsm_recover();   // 失电恢复: 续走中断的阀门动作 (同步完成)
     rtc_alarm_wakeup_init();
 	
 	
@@ -2685,6 +2694,14 @@ init_skip_report:
     // ==================== 状态机主循??====================
     while(1)
     {
+        /* 阀门状态机推进 (非阻塞动作轮询) */
+        valve_fsm_poll();
+        if(valve_fsm_result_pending())
+        {
+            printf_debug("[SM] Valve async result: %s\r\n",
+                         valve_result_str(valve_fsm_result()));
+        }
+
         // ISR置位后立即响应debug串口配置命令
         if(debug_rx_line_ready())
             debug_check_cmd();

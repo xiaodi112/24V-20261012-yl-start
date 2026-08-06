@@ -21,7 +21,8 @@ typedef enum {
     FAULT_CODE_RESET            = 0x01,   /* 上电/复位记录 (reset_cause 有效) */
     FAULT_CODE_RTC_NOT_COUNTING = 0x02,   /* 深睡前 RTC 不走时, 睡眠被阻止 */
     FAULT_CODE_VALVE_TIMEOUT    = 0x03,   /* 阀门动作超时 (P3 使用) */
-    FAULT_CODE_VALVE_ERR        = 0x04    /* 阀门故障: 双限位/机械卡死 (P3 使用) */
+    FAULT_CODE_VALVE_ERR        = 0x04,   /* 阀门故障: 双限位/机械卡死 */
+    FAULT_CODE_VALVE_RECOVER    = 0x05    /* 上电恢复动作中断的阀门指令 */
 } FaultCode_t;
 
 /* ==================== 复位原因 ==================== */

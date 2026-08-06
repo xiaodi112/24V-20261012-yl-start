@@ -735,6 +735,11 @@
               <FilePath>.\my_Library\sched.c</FilePath>
             </File>
             <File>
+              <FileName>valve_fsm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\my_Library\valve_fsm.c</FilePath>
+            </File>
+            <File>
               <FileName>fault_log.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\my_Library\fault_log.h</FilePath>

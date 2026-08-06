@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host-tests:
+    name: Host unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run unit tests
+        run: |
+          cd Tests
+          sh run_tests.sh
+
+  encoding-check:
+    name: Source encoding contract (GBK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tracked C/H files are GBK-decodable
+        run: |
+          fail=0
+          for f in $(git ls-files '*.c' '*.h'); do
+            if ! iconv -f GBK -t UTF-8 "$f" > /dev/null 2>&1; then
+              echo "not GBK-decodable: $f"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  # Keil 固件构建需要 Windows + Keil MDK 环境, 默认禁用;
+  # 在自托管 runner 上启用: 将 runs-on 改为 [self-hosted, windows, keil] 并去掉 if: false
+  keil-build:
+    name: Keil firmware build (self-hosted)
+    runs-on: ubuntu-latest
+    if: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build firmware
+        shell: powershell
+        run: powershell -File build.ps1

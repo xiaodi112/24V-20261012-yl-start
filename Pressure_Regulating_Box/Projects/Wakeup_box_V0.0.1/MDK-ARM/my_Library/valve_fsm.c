@@ -156,7 +156,11 @@ uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t p
     else if(strcmp(action, "close") == 0 || strcmp(action, "0") == 0)
         is_open = 0;
     else
+    {
+        s_vfsm.result = VALVE_FSM_RESULT_ERR;
+        s_vfsm.result_pending = 1;
         return 0;
+    }
 
     if(!g_motor_enabled)
     {
@@ -331,8 +335,8 @@ void valve_fsm_recover(void)
         valve_fsm_poll();
         bsp_wdt_sw_feed();
     }
-    printf_debug("[VALVE] recovered result=%s\r\n",
-                 valve_result_str(valve_fsm_result()));
+    /* 结果不在此消费, 由调用方 (主循环钩子) 读取上报 */
+    printf_debug("[VALVE] recovered done (result pending)\r\n");
 }
 
 const char* valve_result_str(ValveFsmResult_t result)

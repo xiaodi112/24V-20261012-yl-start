@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include "sensor_ctx.h"
 #include "ota_app.h"
+#include "bsp_wdt.h"
 #include "threshold.h"
 
 // ==================== 内部: LPUART接收缓冲 ====================
@@ -96,8 +97,8 @@ static EC_Status_t EC_SendCmd(const char *cmd, const char *expect, uint32_t time
     cnt = 0;
     while(cnt < sizeof(ec_rx_buf) - 1)
     {
-        ota_wdt_feed();  /* 喂狗保护：长AT（如QHTTPGET等数十秒大阻塞）下防止复位 */
-        swdt_feed();     /* 软件看门狗同步喂狗: 覆盖长AT序列(init/upload/downlink)累计耗时 */
+        bsp_wdt_ota_feed();  /* 喂狗保护：长AT（如QHTTPGET等数十秒大阻塞）下防止复位 */
+        bsp_wdt_sw_feed();   /* 软件看门狗同步喂狗: 覆盖长AT序列(init/upload/downlink)累计耗时 */
         // 总超时检查
         if((trea_millis() - start) >= timeout_ms)
             break;
@@ -220,7 +221,7 @@ EC_Status_t EC801E_InitNetwork(void)
                 }
             }
             printf_debug("[EC] CEREG waiting... (%d/10)\r\n", i + 1);
-            swdt_feed();  // 喂狗: CEREG轮询可能持续~30s, 防止看门狗超时
+            bsp_wdt_sw_feed();  // 喂狗: CEREG轮询可能持续~30s, 防止看门狗超时
         }
         if(!cereg_ok)
         {
@@ -524,7 +525,7 @@ EC_Status_t EC801E_SubscribeTopic(void)
 }
 
 // ==================== 读取MQTT下发消息(主动查询) ====================
-// LPUART唤醒时URC已丢失(system_wakeup_reinit禁用了LPUART)
+// LPUART唤醒时URC已丢失(bsp_pmu_wakeup_reinit禁用了LPUART)
 // 因此使用AT+QMTRECV主动查询模块缓存的消息(需配合recv/mode=1)
 EC_Status_t EC801E_ReadDownlink(char *payload_buf, uint16_t buf_size)
 {
@@ -1134,7 +1135,7 @@ EC_Status_t EC801E_HttpDownloadToFlash(const char *url,
         uint32_t last_byte_time = trea_millis();
         while(received < content_length)
         {
-            ota_wdt_feed();  /* 喂狗保护：长连接流式分包接收中持续喂狗 */
+            bsp_wdt_ota_feed();  /* 喂狗保护：长连接流式分包接收中持续喂狗 */
             if(trea_uart_recv_byte_timeout(LPUART0, &ch, 100))
             {
                 last_byte_time = trea_millis();

@@ -10,6 +10,7 @@
 #include "ble_ota.h"
 #include "ota_app.h"
 #include "ota_info.h"
+#include "bsp_wdt.h"
 #include "usart.h"
 #include "delay.h"
 #include "main.h"
@@ -330,7 +331,7 @@ static void handle_start_req(BleOtaParser_t *p)
         fmc_flag_clear(FMC_FLAG_END | FMC_FLAG_WPERR | FMC_FLAG_PGERR);
         for(i = 0, addr = OTA_CACHE_ADDR; i < pages; i++, addr += OTA_FLASH_PAGE_SIZE)
         {
-            ota_wdt_feed();
+            bsp_wdt_ota_feed();
             fmc_page_erase(addr);
             fmc_flag_clear(FMC_FLAG_END | FMC_FLAG_WPERR | FMC_FLAG_PGERR);
         }
@@ -470,7 +471,7 @@ static void handle_end(BleOtaParser_t *p)
 
     /* 3. CRC32全量校验 */
     printf_debug("[BLE_OTA] Computing CRC32...\r\n");
-    ota_wdt_feed();
+    bsp_wdt_ota_feed();
     calc_crc = ble_ota_crc32_compute((uint8_t *)OTA_CACHE_ADDR, g_ble_ota.total_size);
     printf_debug("[BLE_OTA] Expected: 0x%08X, Calculated: 0x%08X\r\n",
                  (unsigned)g_ble_ota.expected_crc32, (unsigned)calc_crc);

@@ -19,9 +19,6 @@ void button_exti_init(void);      // 深休眠前调用: 配置PD0/PD1+EXTI0
 void button_exti_disable(void);   // 唤醒后调用: 禁用EXTI0防止重复触发
 uint8_t button_is_pressed(void);  // 读取PD0(Btn1): 1=按下(LOW), 0=松开(HIGH)
 
-// 进入极低功耗休眠配置 (关闭所有外设和未使用GPIO)
-void gpio_enter_low_power(uint8_t lpuart_enabled);
-
 // 控制 4G 模组 DTR 引脚 (PA0): 1=HIGH (允许休眠), 0=LOW (强制唤醒)
 void gpio_set_4g_dtr(uint8_t level);
 

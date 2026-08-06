@@ -16,10 +16,6 @@ int printf_cat1(const char* fmt, ...);
 
 // ===================== 【封装1】LPUART唤醒初始化 =====================
 void lpuart_wakeup_init(void);
-// ===================== 【封装2】进入深休眠 =====================
-void enter_deepsleep_mode(uint8_t lpuart_enabled);
-// ===================== 【封装3】唤醒后系统重新初始化 =====================
-void system_wakeup_reinit(void);
 // ===================== LPUART初始化 =====================
 void com_lpuart_init(void);
 extern __IO uint8_t counter0;  // LPUART唤醒标记

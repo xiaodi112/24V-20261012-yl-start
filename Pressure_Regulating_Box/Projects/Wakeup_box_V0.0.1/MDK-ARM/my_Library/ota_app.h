@@ -41,7 +41,5 @@ void ota_app_report_boot_status(void);
 void ota_app_report_stop(void);
 
 /* OTA 专用看门狗控制 */
-void ota_wdt_enable(void);
-void ota_wdt_feed(void);
 
 #endif /* OTA_APP_H */

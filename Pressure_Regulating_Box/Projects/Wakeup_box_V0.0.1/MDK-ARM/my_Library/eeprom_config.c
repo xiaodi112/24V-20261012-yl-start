@@ -12,6 +12,7 @@
 #include "eeprom_config.h"
 #include "m24m01.h"
 #include "usart.h"
+#include "bsp_pmu.h"
 #include "delay.h"
 #include "app_config.h"
 #include "threshold.h"
@@ -1377,7 +1378,7 @@ uint8_t mqtt_valid = 0;
     // 30秒超?? MQTT仍未配置
     printf_debug("[CFG] TIMEOUT: MQTT not configured, entering deep sleep...\r\n");
     trea_delay_ms(50);
-    enter_deepsleep_mode(0);
+    bsp_pmu_enter_deepsleep(0, 0, 0);   /* 配置超时休眠: LCD/BLE 尚未启用, 传 0 */
 }
 
 

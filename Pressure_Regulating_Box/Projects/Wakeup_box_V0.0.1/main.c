@@ -47,6 +47,8 @@
 #include "eeprom_history.h"
 #include "fault_log.h"
 #include "bsp_motor.h"
+#include "bsp_pmu.h"
+#include "bsp_wdt.h"
 
 // ==================== 状态定??====================
 typedef enum {
@@ -635,7 +637,7 @@ static void realtime_enter_sleep(void)
     button_exti_init();
     if(g_bt_on) ble_exti_init();
     lpuart_dma_rx_disable();
-    enter_deepsleep_mode(lpuart_enabled);
+    bsp_pmu_enter_deepsleep(lpuart_enabled, g_lcd_active, g_bt_on);
 }
 
 // ==================== 实时采集最小化唤醒路径 ====================
@@ -650,11 +652,11 @@ static void do_realtime_check(void)
     uint8_t i;
 
     // === 最小初始化 (时钟恢复) ===
-    system_wakeup_reinit();
+    bsp_pmu_wakeup_reinit();
 
     // 软件看门?? 实时采集路径??do_sleep 循环直接调用(不经主循环分??, 需独立使能
-    // SysTick 已由 system_wakeup_reinit 重新配置; 回睡??enter_deepsleep_mode 会关??
-    swdt_enable(SWDT_TIMEOUT_MS);
+    // SysTick 已由 bsp_pmu_wakeup_reinit 重新配置; 回睡时 bsp_pmu_enter_deepsleep 会关闭
+    bsp_wdt_sw_enable(SWDT_TIMEOUT_MS);
 
     // === 采集 (仅传感器, 不读ADC; PD4/IIC ??CollectAll 内部管理) ===
     PT304D_CollectAll((g_sensor_count >= 2) ? &g_sensor.raw2 : NULL, &g_sensor.raw);
@@ -870,7 +872,7 @@ static void do_sleep(void)
     gpio_debug_uart_pins_low();
     buzzer_off();
     // PB9 = SLCD COM3, 不关??
-    // PB6/PB7(I2C总线2 SCL/SDA): 不主动拉低, 由 gpio_enter_low_power 切 Analog
+    // PB6/PB7(I2C总线2 SCL/SDA): 不主动拉低, 由 bsp_pmu_low_power_pins 切 Analog
     // 避免在传感器断电过程中产生异常 I2C 信号导致下次上电后总线锁死
 
     // 4G电源管理: 根据window pattern决定PB5(V4G_EN)状??
@@ -923,7 +925,7 @@ static void do_sleep(void)
                 app_state = STATE_COLLECT;
                 return;
             }
-            enter_deepsleep_mode(fourG_keep_on);
+            bsp_pmu_enter_deepsleep(fourG_keep_on, g_lcd_active, g_bt_on);
 
             // 唤醒: 按键或LPUART或RI或BLE连接 → 直接进入 STATE_WAKEUP
             if(button_wakeup_flag || counter0 || ri_wakeup_flag || ble_connect_wakeup_flag)
@@ -1052,13 +1054,13 @@ static void do_sleep(void)
         app_state = STATE_COLLECT;
         return;
     }
-    enter_deepsleep_mode(fourG_keep_on);
+    bsp_pmu_enter_deepsleep(fourG_keep_on, g_lcd_active, g_bt_on);
 
     // 实时采集循环: RTC秒级唤醒 → 检查是否到采集网格 → 否则最小采集回睡
     while(g_real_enabled && rtc_alarm_flag && !counter0 && !ri_wakeup_flag && !button_wakeup_flag && !ble_connect_wakeup_flag)
     {
         // 最小时钟恢????读RTC判断是否到达正常采集网格
-        system_wakeup_reinit();
+        bsp_pmu_wakeup_reinit();
         rtc_register_sync_wait();
 
         {
@@ -1216,7 +1218,7 @@ static void do_wakeup(void)
         g_is_minimal_wakeup = 1;
         g_need_adc_sampling = 0;
         
-        system_wakeup_reinit();
+        bsp_pmu_wakeup_reinit();
         
         // 极简采集初始?? Systick、Debug 串口发?? PD4(SW_IIC)/IIC 引脚??PT304D_CollectAll 内部初始??
         systick_config();
@@ -1241,7 +1243,7 @@ static void do_wakeup(void)
         g_is_minimal_wakeup = 1;
         g_need_adc_sampling = 1;
         
-        system_wakeup_reinit();
+        bsp_pmu_wakeup_reinit();
         trea_uart_init();
 		buzzer_init();
         button_exti_disable();
@@ -1255,7 +1257,7 @@ static void do_wakeup(void)
         g_is_minimal_wakeup = 0;
         g_need_adc_sampling = 1;
         
-        system_wakeup_reinit();
+        bsp_pmu_wakeup_reinit();
         sys_init();
         
         // 禁用按键EXTI(唤醒后立即禁止抨动重复触??
@@ -1801,7 +1803,7 @@ static void do_alarm(void)
     const char *alarm_type = "unknown";
 
     ensure_full_init();
-    swdt_feed();   // 4G冷启动+阀门动作+上报累计可达百秒级, 喂狗防止SWDT超时
+    bsp_wdt_sw_feed();   // 4G冷启动+阀门动作+上报累计可达百秒级, 喂狗防止SWDT超时
 
     printf_debug("[SM] ALARM: rechecking %d times...\r\n", APP_ALARM_RECHECK_COUNT);
 
@@ -1985,7 +1987,7 @@ static void do_upload(void)
         SensorRecord_t rec;
         uint8_t rd_ret;
 
-        swdt_feed();
+        bsp_wdt_sw_feed();
         // 阀门最高优先级: 每条记录处理前检查(防止上传吞掉阀门事件)
         vtiming_check(1);
         rd_ret = ee_hist_read(0, &ee_rec);
@@ -2175,7 +2177,7 @@ static void do_ble_ota(void)
 
         if(g_ble_ota.state == BLE_OTA_DOWNLOADING)
         {
-            ota_wdt_feed();
+            bsp_wdt_ota_feed();
         }
     }
 	
@@ -2448,7 +2450,7 @@ int main(void)
 	PT304D_Init(PT304D_SENSOR_1);
     PT304D_Init(PT304D_SENSOR_2);
     // 软件看门?? SysTick 已在 sys_init 内启?? 启用以保护后??4G 联网/上报等阻塞流??
-    swdt_enable(SWDT_TIMEOUT_MS);
+    bsp_wdt_sw_enable(SWDT_TIMEOUT_MS);
     com_lpuart_init();
     lpuart_wakeup_init();
 	printf_debug("\r\n[OTA] yes%s \r\n", APP_FIRMWARE_VERSION);
@@ -2677,8 +2679,8 @@ init_skip_report:
             debug_check_cmd();
 
         // 软件看门?? 每次状态分发前重新使能并复位计??(活跃处理阶段保护)
-        // 深休眠由 enter_deepsleep_mode() 内部 swdt_disable() 关闭, 休眠期不计时
-        swdt_enable(SWDT_TIMEOUT_MS);
+        // 深休眠由 bsp_pmu_enter_deepsleep() 内部 bsp_wdt_sw_disable() 关闭, 休眠期不计时
+        bsp_wdt_sw_enable(SWDT_TIMEOUT_MS);
 
         switch(app_state)
         {

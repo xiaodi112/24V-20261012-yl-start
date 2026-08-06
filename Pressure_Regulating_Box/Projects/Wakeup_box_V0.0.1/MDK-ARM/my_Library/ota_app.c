@@ -4,6 +4,7 @@
  */
 #include "ota_app.h"
 #include "ec800e.h"
+#include "bsp_wdt.h"
 #include "eeprom_config.h"
 #include "adc_bat.h"
 #include "usart.h"
@@ -101,21 +102,6 @@ static void ota_info_clear(void)
     fmc_lock();
 }
 
-/* ==================== 看门狗控制 (仅在 OTA 升级期间启用) ==================== */
-void ota_wdt_enable(void)
-{
-    printf_debug("[WDT] Enabling Independent Watchdog for OTA (approx 26.2s timeout)\r\n");
-    fwdgt_write_enable();
-    fwdgt_config(4095, FWDGT_PSC_DIV256);
-    fwdgt_counter_reload();
-    fwdgt_enable();
-}
-
-void ota_wdt_feed(void)
-{
-    fwdgt_counter_reload();
-}
-
 /* ==================== 缓存区擦除 ==================== */
 
 static int ota_cache_erase(void)
@@ -131,7 +117,7 @@ static int ota_cache_erase(void)
     addr = OTA_CACHE_ADDR;
     for(i = 0; i < pages; i++)
     {
-        ota_wdt_feed();  /* 喂狗防止擦写耗时导致重启 */
+        bsp_wdt_ota_feed();  /* 喂狗防止擦写耗时导致重启 */
         st = fmc_page_erase(addr);
         if(st != FMC_READY)
         {
@@ -292,8 +278,8 @@ void ota_app_handle_upgrade_cmd(const char *payload)
     /* 版本校验通过，上报 upgrade=0 (进行升级) */
     ota_report_status(OTA_ST_UPGRADING);
 
-    /* 启动看门狗保护OTA过程 */
-    ota_wdt_enable();
+    /* 启动硬件看门狗保护OTA过程 (FWDGT, 见 bsp_wdt) */
+    bsp_wdt_ota_enable();
 
     /* 4. 保持 4G 在线 (取消 QSCLK) */
     EC801E_SetPSM(0);

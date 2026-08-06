@@ -97,6 +97,7 @@ static EC_Status_t EC_SendCmd(const char *cmd, const char *expect, uint32_t time
     while(cnt < sizeof(ec_rx_buf) - 1)
     {
         ota_wdt_feed();  /* 喂狗保护：长AT（如QHTTPGET等数十秒大阻塞）下防止复位 */
+        swdt_feed();     /* 软件看门狗同步喂狗: 覆盖长AT序列(init/upload/downlink)累计耗时 */
         // 总超时检查
         if((trea_millis() - start) >= timeout_ms)
             break;
@@ -1473,4 +1474,3 @@ EC_Status_t EC801E_UserMqtt_PublishRecord(const SensorRecord_t *record)
 
     return umqtt_publish_payload();
 }
-

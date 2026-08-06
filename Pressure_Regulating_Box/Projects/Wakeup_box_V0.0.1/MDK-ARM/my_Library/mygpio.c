@@ -38,7 +38,7 @@ void gpio_init(void)
     gpio_output_options_set(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_5);
 }
 
-// ===================== PD0(Btn1)/PD1(Btn2) 按键唤醒 =====================
+// ===================== PD0(Btn1) 按键唤醒 =====================
 volatile uint8_t button_wakeup_flag = 0;
 
 // 深休眠前调用: PD0输入+上拉 → EXTI0下降沿 → NVIC使能
@@ -47,7 +47,7 @@ void button_exti_init(void)
     rcu_periph_clock_enable(RCU_GPIOD);
     rcu_periph_clock_enable(RCU_SYSCFG);
 
-    // PD0(Btn1)/PD1(Btn2): 输入, 内部上拉 (空闲HIGH, 按下LOW)
+    // PD0(Btn1): 输入, 内部上拉 (空闲HIGH, 按下LOW)
     gpio_mode_set(GPIOD, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO_PIN_0);
 
     // EXTI0 → PD0(Btn1), 下降沿触发唤醒

@@ -1146,9 +1146,9 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
             jb_begin(&jb, json_buf, sizeof(json_buf));
             snprintf(v_str, sizeof(v_str), "%d", g_valve_timing.enabled);
             jb_add_str(&jb, "timing_switch", v_str, ts_buf);
-            snprintf(v_str, sizeof(v_str), "%06lu", g_valve_timing.open_time);
+            snprintf(v_str, sizeof(v_str), "%06u", (unsigned int)g_valve_timing.open_time);
             jb_add_str(&jb, "timing_open", v_str, ts_buf);
-            snprintf(v_str, sizeof(v_str), "%06lu", g_valve_timing.close_time);
+            snprintf(v_str, sizeof(v_str), "%06u", (unsigned int)g_valve_timing.close_time);
             jb_add_str(&jb, "timing_close", v_str, ts_buf);
             jb_end(&jb);
             EC801E_PublishRawJson(json_buf);
@@ -1227,6 +1227,7 @@ uint8_t drain_pending_downlink(void)
     {
         // 阀门最高优先级: 处理每条下行前检查(防止下行批处理吞掉阀门事件)
         vtiming_check(1);
+        swdt_feed();   // 下行批处理可能多次长AT(每条QMTRECV最多15s), 防止SWDT累计超时
 
         id_val[0] = '\0';
         cmd_val[0] = '\0';

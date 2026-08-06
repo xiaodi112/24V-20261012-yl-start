@@ -45,6 +45,7 @@
 #include "ble_ota.h"
 #include "json_builder.h"
 #include "eeprom_history.h"
+#include "fault_log.h"
 
 // ==================== 状态定??====================
 typedef enum {
@@ -115,7 +116,6 @@ void lcd_shutdown(void)
 {
     if(!g_lcd_active) return;
     slcd_disable();
-//    rcu_periph_clock_disable(RCU_SLCD);
 
     // 将SLCD全部COM/SEG引脚设为模拟输入, 与无LCD产品状态完全一??
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -243,6 +243,9 @@ static uint8_t sensor_debounce_update(uint8_t cur_online, uint8_t cur_online2)
 // ==================== 硬件恢复 ====================
 static void sys_init(void)
 {
+    /* 捕获本次复位原因 (必须在 rcu_all_reset_flag_clear 之前, 由 fault_log_init 落盘) */
+    fault_log_capture_reset_cause();
+
     /* 重定位中断向量表??App 区起址 (Bootloader 跳转后必须设?? Cortex-M23 支持 VTOR) */
     SCB->VTOR = OTA_APP_ADDR;
 
@@ -274,6 +277,19 @@ static void sys_init(void)
 
 // ==================== 前向声明 ====================
 static void ensure_full_init(void);
+
+// ==================== 深睡前 RTC 健康检查 ====================
+// 防止 RTC 不走时(晶振失效/备份域异常)进入深睡导致永久睡死;
+// 检查失败则阻止深睡, 降级为活跃模式(SWDT 兜底), 并记录故障.
+static uint8_t sleep_gate_rtc_ok(void)
+{
+    if(rtc_is_counting())
+        return 1;
+
+    printf_debug("[SM] RTC not counting, deep sleep blocked (degraded active)\r\n");
+    fault_log_add(FAULT_CODE_RTC_NOT_COUNTING, 0);
+    return 0;
+}
 
 // ==================== LCD信号强度更新 (4G在线时调?? 同时上报本端平台) ====================
 static void lcd_update_csq(void)
@@ -608,6 +624,9 @@ static void realtime_enter_sleep(void)
 {
     uint8_t lpuart_enabled = 0;
 
+    if(!sleep_gate_rtc_ok())
+        return;   // RTC 不走时禁止深睡, 降级为活跃采集
+
     gpio_bit_reset(GPIOD, GPIO_PIN_4);
     rtc_alarm_wakeup_init();
     rtc_set_next_alarm_sec(g_real_frequency);
@@ -913,6 +932,12 @@ static void do_sleep(void)
 
             printf_debug("[SM] LCD timeout sleep %ds\r\n", (int)remain);
             trea_delay_ms(20);
+            if(!sleep_gate_rtc_ok())
+            {
+                lcd_shutdown();   // RTC 异常: 先关屏再降级, 避免 LCD 常亮耗电
+                app_state = STATE_COLLECT;
+                return;
+            }
             enter_deepsleep_mode(fourG_keep_on);
 
             // 唤醒: 按键或LPUART或RI或BLE连接 → 直接进入 STATE_WAKEUP
@@ -995,7 +1020,7 @@ static void do_sleep(void)
         ri_exti_init();
     }
 
-    // PA12按键唤醒: 始终启用(用于手动开??G)
+    // PD0(Btn1) 按键唤醒: 始终启用(用于手动开??G)
     button_exti_init();
 
     // BLE连接事件未处理(与按键同时唤醒), 回到WAKEUP处理
@@ -1037,6 +1062,11 @@ static void do_sleep(void)
                      fourG_keep_on ? "ON" : "OFF", g_bt_on);
     trea_delay_ms(20);
 
+    if(!sleep_gate_rtc_ok())
+    {
+        app_state = STATE_COLLECT;
+        return;
+    }
     enter_deepsleep_mode(fourG_keep_on);
 
     // 实时采集循环: RTC秒级唤醒 → 检查是否到采集网格 → 否则最小采集回睡
@@ -1786,6 +1816,7 @@ static void do_alarm(void)
     const char *alarm_type = "unknown";
 
     ensure_full_init();
+    swdt_feed();   // 4G冷启动+阀门动作+上报累计可达百秒级, 喂狗防止SWDT超时
 
     printf_debug("[SM] ALARM: rechecking %d times...\r\n", APP_ALARM_RECHECK_COUNT);
 
@@ -2397,6 +2428,13 @@ static void debug_check_cmd(void)
                          g_spupower.enabled, g_spupower.protect);
             continue;
         }
+        if(strcmp(line_buf, "rst") == 0)
+        {
+            printf_debug("  reset cause=%s fault_records=%d\r\n",
+                         fault_log_reset_cause_str(fault_log_reset_cause()),
+                         fault_log_count());
+            continue;
+        }
         if(strcmp(line_buf, "buf") == 0)
         {
             printf_debug("  ee_hist: %d records\r\n", ee_hist_count());
@@ -2438,6 +2476,7 @@ int main(void)
     config_print_current();
 
     rtc_init_all();
+    fault_log_init();   // 复位原因/故障记录落盘 (RTC 就绪, 时间戳有效)
     rtc_alarm_wakeup_init();
 	
 	

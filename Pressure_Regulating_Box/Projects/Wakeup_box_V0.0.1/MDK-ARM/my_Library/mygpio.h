@@ -5,7 +5,7 @@
 
 void gpio_init(void);
 
-// ===================== PD0(Btn1)/PD1(Btn2) 按键唤醒 =====================
+// ===================== PD0(Btn1) 按键唤醒 =====================
 // 按键接地(按下=LOW), 内部上拉, EXTI0下降沿唤醒
 extern volatile uint8_t button_wakeup_flag;
 void button_exti_init(void);      // 深休眠前调用: 配置PD0/PD1+EXTI0

@@ -365,6 +365,32 @@ uint32_t rtc_get_hhmmss(void)
 }
 
 // ==============================
+// RTC 健康检查: 时间是否在走
+// 深睡前调用, 防止 LXTAL 失效/备份域异常导致闹钟永不触发、设备永久睡死
+// 两次读取间隔 >1s, 正常运行必然跨秒, 可稳定区分"在走"与"冻结"
+// ==============================
+uint8_t rtc_is_counting(void)
+{
+    rtc_parameter_struct t1, t2;
+    uint32_t v1, v2;
+
+    rtc_current_time_get(&t1);
+    v1 = (uint32_t)t1.hour * 10000 + (uint32_t)t1.minute * 100 + t1.second;
+
+    trea_delay_ms(600);
+    rtc_current_time_get(&t2);
+    v2 = (uint32_t)t2.hour * 10000 + (uint32_t)t2.minute * 100 + t2.second;
+    if(v1 != v2)
+        return 1;
+
+    /* 再确认一次 (共约1.2s, 每次睡眠周期仅一次) */
+    trea_delay_ms(600);
+    rtc_current_time_get(&t2);
+    v2 = (uint32_t)t2.hour * 10000 + (uint32_t)t2.minute * 100 + t2.second;
+    return (v1 != v2) ? 1 : 0;
+}
+
+// ==============================
 // RTC闹钟唤醒初始化
 // 配置EXTI17 + NVIC使能RTC_Alarm中断
 // ==============================

@@ -8,6 +8,7 @@ void test_json_all(void);
 void test_sensor_buffer_all(void);
 void test_threshold_all(void);
 void test_valve_fsm_all(void);
+void test_valve_all(void);
 
 int main(void)
 {
@@ -15,6 +16,7 @@ int main(void)
     printf("== SENSOR BUFFER ==\n"); test_sensor_buffer_all();
     printf("== THRESHOLD ==\n"); test_threshold_all();
     printf("== VALVE FSM ==\n"); test_valve_fsm_all();
+    printf("== VALVE (motor contract) ==\n"); test_valve_all();
 
     if(g_test_failures == 0)
     {

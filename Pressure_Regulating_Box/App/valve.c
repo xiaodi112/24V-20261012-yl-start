@@ -28,6 +28,10 @@ const char* valve_execute(const char *action, uint8_t update_last_order)
 // ==================== 阀门实时状态查询 (不动作) ====================
 const char* valve_get_status(void)
 {
+    /* 电机功能禁用时, 动作与状态上报全部失效 (契约: g_motor_enabled=0) */
+    if(!g_motor_enabled)
+        return "valve_err";
+
     uint8_t l1 = bsp_motor_limit_open();   // 开阀到位
     uint8_t l2 = bsp_motor_limit_close();  // 关阀到位
 

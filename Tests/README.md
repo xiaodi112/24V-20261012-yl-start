@@ -7,6 +7,7 @@
 | 模块 | 覆盖内容 |
 |---|---|
 | `valve_fsm` | 开/关阀、超时、双限位预检、反向限位故障、压紧、抢占、失电恢复、忙时拒绝 |
+| `valve` | 电机功能开关契约: `g_motor_enabled=0` 时动作与状态上报均返回 valve_err |
 | `threshold` | 压力/温度/电压阈值、滞回、突变、VPROTECT |
 | `json_builder` | 字段拼接、缓冲上限安全 |
 | `sensor_buffer` | 环形缓冲、覆盖、pop、越界 |

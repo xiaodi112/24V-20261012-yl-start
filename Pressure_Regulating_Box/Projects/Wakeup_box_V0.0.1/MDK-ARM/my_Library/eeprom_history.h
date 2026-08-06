@@ -2,118 +2,118 @@
 #define EEPROM_HISTORY_H
 
 #include <stdint.h>
-#include "m24m01.h"    /* È¡ EEPROM_DRV_* / EEPROM_TOTAL_SIZE Ğ¾Æ¬Ñ¡Ôñ */
+#include "m24m01.h"    /* å– EEPROM_DRV_* / EEPROM_TOTAL_SIZE èŠ¯ç‰‡é€‰æ‹© */
 
 /**
  * @file eeprom_history.h
- * @brief EEPROM ÀúÊ·Êı¾İ»·ĞÎ»º³å´æ´¢ (M24M01 / AT24C64 ±àÒëÑ¡Ôñ)
+ * @brief EEPROM å†å²æ•°æ®ç¯å½¢ç¼“å†²å­˜å‚¨ (M24M01 / AT24C64 ç¼–è¯‘é€‰æ‹©)
  *
- * µØÖ·¹æ»® (°´Ğ¾Æ¬ÈİÁ¿×Ô¶¯Ñ¡Ôñ):
+ * åœ°å€è§„åˆ’ (æŒ‰èŠ¯ç‰‡å®¹é‡è‡ªåŠ¨é€‰æ‹©):
  *   M24M01 (128KB):
- *   ÅäÖÃÇø  0x00000 ~ 0x00FFF (4KB Ô¤Áô, ÓÉ eeprom_config Ê¹ÓÃ)
- *   ¹ÜÀíÍ·  0x01000 ~ 0x010FF (8·İ x 32B, ÂÖ»»Ğ´ÈëÊµÏÖÄ¥Ëğ¾ùºâ, Õ¼ 1 Ò³)
- *   ÀúÊ·Çø  0x01100 ~ 0x1FFFF (126720B = 3960Ìõ x 32B)
+ *   é…ç½®åŒº  0x00000 ~ 0x00FFF (4KB é¢„ç•™, ç”± eeprom_config ä½¿ç”¨)
+ *   ç®¡ç†å¤´  0x01000 ~ 0x010FF (8ä»½ x 32B, è½®æ¢å†™å…¥å®ç°ç£¨æŸå‡è¡¡, å  1 é¡µ)
+ *   å†å²åŒº  0x01100 ~ 0x1FFFF (126720B = 3960æ¡ x 32B)
  *   AT24C64 (8KB):
- *   ÅäÖÃÇø  0x00000 ~ 0x007FF (2KB Ô¤Áô, ÓÉ eeprom_config Ê¹ÓÃ)
- *   ¹ÜÀíÍ·  0x00800 ~ 0x008FF (8·İ x 32B, ÂÖ»»Ğ´ÈëÊµÏÖÄ¥Ëğ¾ùºâ)
- *   ÀúÊ·Çø  0x00900 ~ 0x01FFF (5888B = 184Ìõ x 32B)
+ *   é…ç½®åŒº  0x00000 ~ 0x007FF (2KB é¢„ç•™, ç”± eeprom_config ä½¿ç”¨)
+ *   ç®¡ç†å¤´  0x00800 ~ 0x008FF (8ä»½ x 32B, è½®æ¢å†™å…¥å®ç°ç£¨æŸå‡è¡¡)
+ *   å†å²åŒº  0x00900 ~ 0x01FFF (5888B = 184æ¡ x 32B)
  *
- * Ã¿Ìõ¼ÇÂ¼ 32 ×Ö½Ú, Ò³ÄÚ¶ÔÆë (Ò³´óĞ¡ÓÉĞ¾Æ¬¾ö¶¨: 256B / 32B), Ğ´ÈëÎŞĞè¿çÒ³.
- * »·ĞÎ¸²¸Ç: Ğ´Âúºó×Ô¶¯¸²¸Ç×î¾É¼ÇÂ¼.
- * µôµç»Ö¸´: ÉÏµç¶ÁÈ¡ÓĞĞ§¹ÜÀíÍ·¸±±¾»Ö¸´»·ĞÎ×´Ì¬, È«²¿ÎŞĞ§²Å¸ñÊ½»¯.
+ * æ¯æ¡è®°å½• 32 å­—èŠ‚, é¡µå†…å¯¹é½ (é¡µå¤§å°ç”±èŠ¯ç‰‡å†³å®š: 256B / 32B), å†™å…¥æ— éœ€è·¨é¡µ.
+ * ç¯å½¢è¦†ç›–: å†™æ»¡åè‡ªåŠ¨è¦†ç›–æœ€æ—§è®°å½•.
+ * æ‰ç”µæ¢å¤: ä¸Šç”µè¯»å–æœ‰æ•ˆç®¡ç†å¤´å‰¯æœ¬æ¢å¤ç¯å½¢çŠ¶æ€, å…¨éƒ¨æ— æ•ˆæ‰æ ¼å¼åŒ–.
  */
 
-// ==================== µØÖ·¶¨Òå (°´Ğ¾Æ¬×Ô¶¯Ñ¡Ôñ) ====================
-#if (EEPROM_TOTAL_SIZE >= 131072)          /* M24M01: ÅäÖÃÇø 4KB */
-  #define EE_HIST_BASE           0x01000   /* ÀúÊ·ÇøÆğÊ¼µØÖ· */
-  #define EE_HIST_HEADER_BASE    0x01000   /* ¹ÜÀíÍ·»ùÖ· (8·İ¸±±¾, Ã¿·İ32B) */
-  #define EE_HIST_DATA_ADDR      0x01100   /* Êı¾İÇøÆğÊ¼µØÖ· (256BÒ³¶ÔÆë) */
-  #define EE_HIST_END_ADDR       0x1FFFF   /* EEPROMÄ©Î² */
-#elif (EEPROM_TOTAL_SIZE >= 8192)          /* AT24C64: ÅäÖÃÇø 2KB */
-  #define EE_HIST_BASE           0x00800   /* ÀúÊ·ÇøÆğÊ¼µØÖ· */
-  #define EE_HIST_HEADER_BASE    0x00800   /* ¹ÜÀíÍ·»ùÖ· (8·İ¸±±¾, Ã¿·İ32B) */
-  #define EE_HIST_DATA_ADDR      0x00900   /* Êı¾İÇøÆğÊ¼µØÖ· (32BÒ³¶ÔÆë) */
-  #define EE_HIST_END_ADDR       0x01FFF   /* EEPROMÄ©Î² */
+// ==================== åœ°å€å®šä¹‰ (æŒ‰èŠ¯ç‰‡è‡ªåŠ¨é€‰æ‹©) ====================
+#if (EEPROM_TOTAL_SIZE >= 131072)          /* M24M01: é…ç½®åŒº 4KB */
+  #define EE_HIST_BASE           0x01000   /* å†å²åŒºèµ·å§‹åœ°å€ */
+  #define EE_HIST_HEADER_BASE    0x01000   /* ç®¡ç†å¤´åŸºå€ (8ä»½å‰¯æœ¬, æ¯ä»½32B) */
+  #define EE_HIST_DATA_ADDR      0x01100   /* æ•°æ®åŒºèµ·å§‹åœ°å€ (256Bé¡µå¯¹é½) */
+  #define EE_HIST_END_ADDR       0x1FFFF   /* EEPROMæœ«å°¾ */
+#elif (EEPROM_TOTAL_SIZE >= 8192)          /* AT24C64: é…ç½®åŒº 2KB */
+  #define EE_HIST_BASE           0x00800   /* å†å²åŒºèµ·å§‹åœ°å€ */
+  #define EE_HIST_HEADER_BASE    0x00800   /* ç®¡ç†å¤´åŸºå€ (8ä»½å‰¯æœ¬, æ¯ä»½32B) */
+  #define EE_HIST_DATA_ADDR      0x00900   /* æ•°æ®åŒºèµ·å§‹åœ°å€ (32Bé¡µå¯¹é½) */
+  #define EE_HIST_END_ADDR       0x01FFF   /* EEPROMæœ«å°¾ */
 #else
-  #error "EEPROM_HISTORY: ²»Ö§³ÖµÄ EEPROM ÈİÁ¿"
+  #error "EEPROM_HISTORY: ä¸æ”¯æŒçš„ EEPROM å®¹é‡"
 #endif
-#define EE_HIST_HEADER_COPIES  8         /* ¹ÜÀíÍ·¸±±¾Êı (Ä¥Ëğ¾ùºâ) */
-#define EE_HIST_RECORD_SIZE    32        /* Ã¿Ìõ¼ÇÂ¼×Ö½ÚÊı */
+#define EE_HIST_HEADER_COPIES  8         /* ç®¡ç†å¤´å‰¯æœ¬æ•° (ç£¨æŸå‡è¡¡) */
+#define EE_HIST_RECORD_SIZE    32        /* æ¯æ¡è®°å½•å­—èŠ‚æ•° */
 #define EE_HIST_MAX_RECORDS    ((EE_HIST_END_ADDR - EE_HIST_DATA_ADDR + 1U) / EE_HIST_RECORD_SIZE)
 
-// ==================== ¹ÜÀíÍ· Magic / °æ±¾ ====================
-#define EE_HIST_MAGIC          0xDA7A   /* "DATA" Ğ³Òô */
-#define EE_HIST_VERSION        1        /* ´æ´¢¸ñÊ½°æ±¾ (¾ÉAT24C64¸ñÊ½=0, °æ±¾²»·û×Ô¶¯ÖØ½¨) */
+// ==================== ç®¡ç†å¤´ Magic / ç‰ˆæœ¬ ====================
+#define EE_HIST_MAGIC          0xDA7A   /* "DATA" è°éŸ³ */
+#define EE_HIST_VERSION        1        /* å­˜å‚¨æ ¼å¼ç‰ˆæœ¬ (æ—§AT24C64æ ¼å¼=0, ç‰ˆæœ¬ä¸ç¬¦è‡ªåŠ¨é‡å»º) */
 
-// ==================== ÀúÊ·¼ÇÂ¼ (32×Ö½Ú, Ò³ÄÚ¶ÔÆë) ====================
+// ==================== å†å²è®°å½• (32å­—èŠ‚, é¡µå†…å¯¹é½) ====================
 typedef struct {
-    float    pressure;       // ½øÆø¶ËÑ¹Á¦ (Pa)          [4B]
-    float    temperature;    // ½øÆø¶ËÎÂ¶È (C)           [4B]
-    float    pressure2;      // ³öÆø¶ËÑ¹Á¦ (Pa)          [4B]
-    float    temperature2;   // ³öÆø¶ËÎÂ¶È (C)           [4B]
-    float    voltage;        // µç³ØµçÑ¹ (V)             [4B]
-    uint8_t  ts_bcd[6];     // Ê±¼ä´Á BCD: YY MM DD HH MM SS [6B]
-    uint8_t  flags;          // ±êÖ¾Î» (SENSOR_FLAG_xxx) [1B]
-    uint8_t  crc8;           // CRC8Ğ£Ñé (Ç°31×Ö½Ú)      [1B]
-    uint8_t  reserved[4];    // Ô¤ÁôÀ©Õ¹                 [4B]
-} EeHistRecord_t;            // ºÏ¼Æ: 32B
+    float    pressure;       // è¿›æ°”ç«¯å‹åŠ› (Pa)          [4B]
+    float    temperature;    // è¿›æ°”ç«¯æ¸©åº¦ (C)           [4B]
+    float    pressure2;      // å‡ºæ°”ç«¯å‹åŠ› (Pa)          [4B]
+    float    temperature2;   // å‡ºæ°”ç«¯æ¸©åº¦ (C)           [4B]
+    float    voltage;        // ç”µæ± ç”µå‹ (V)             [4B]
+    uint8_t  ts_bcd[6];     // æ—¶é—´æˆ³ BCD: YY MM DD HH MM SS [6B]
+    uint8_t  flags;          // æ ‡å¿—ä½ (SENSOR_FLAG_xxx) [1B]
+    uint8_t  crc8;           // CRC8æ ¡éªŒ (å‰31å­—èŠ‚)      [1B]
+    uint8_t  reserved[4];    // é¢„ç•™æ‰©å±•                 [4B]
+} EeHistRecord_t;            // åˆè®¡: 32B
 
-// ==================== ½Ó¿Úº¯Êı ====================
+// ==================== æ¥å£å‡½æ•° ====================
 
 /**
- * ³õÊ¼»¯ÀúÊ·»º³å (ÉÏµçµ÷ÓÃ)
- * ÓÅÏÈ»Ö¸´ÉÏ´ÎµÄ¹ÜÀíÍ·×´Ì¬; ÎŞÓĞĞ§¸±±¾Ê±¸ñÊ½»¯.
+ * åˆå§‹åŒ–å†å²ç¼“å†² (ä¸Šç”µè°ƒç”¨)
+ * ä¼˜å…ˆæ¢å¤ä¸Šæ¬¡çš„ç®¡ç†å¤´çŠ¶æ€; æ— æœ‰æ•ˆå‰¯æœ¬æ—¶æ ¼å¼åŒ–.
  */
 void ee_hist_init(void);
 
 /**
- * Ğ´ÈëÒ»ÌõÀúÊ·¼ÇÂ¼ (×Ô¶¯»ñÈ¡µ±Ç°RTCÊ±¼ä×÷ÎªÊ±¼ä´Á)
- * @param pressure   ½øÆø¶ËÑ¹Á¦ (Pa)
- * @param temperature ½øÆø¶ËÎÂ¶È (C)
- * @param pressure2  ³öÆø¶ËÑ¹Á¦ (Pa)
- * @param temperature2 ³öÆø¶ËÎÂ¶È (C)
- * @param voltage    µç³ØµçÑ¹ (V)
- * @param flags      ±êÖ¾Î»
+ * å†™å…¥ä¸€æ¡å†å²è®°å½• (è‡ªåŠ¨è·å–å½“å‰RTCæ—¶é—´ä½œä¸ºæ—¶é—´æˆ³)
+ * @param pressure   è¿›æ°”ç«¯å‹åŠ› (Pa)
+ * @param temperature è¿›æ°”ç«¯æ¸©åº¦ (C)
+ * @param pressure2  å‡ºæ°”ç«¯å‹åŠ› (Pa)
+ * @param temperature2 å‡ºæ°”ç«¯æ¸©åº¦ (C)
+ * @param voltage    ç”µæ± ç”µå‹ (V)
+ * @param flags      æ ‡å¿—ä½
  */
 void ee_hist_push(float pressure, float temperature,
                   float pressure2, float temperature2,
                   float voltage, uint8_t flags);
 
 /**
- * ¶ÁÈ¡µÚ index Ìõ¼ÇÂ¼ (0=×î¾É, count-1=×îĞÂ)
- * @param index  ¼ÇÂ¼Ë÷Òı
- * @param out    Êä³ö»º³å
- * @return 0=³É¹¦, 1=Ë÷ÒıÔ½½ç, 2=CRCĞ£ÑéÊ§°Ü
+ * è¯»å–ç¬¬ index æ¡è®°å½• (0=æœ€æ—§, count-1=æœ€æ–°)
+ * @param index  è®°å½•ç´¢å¼•
+ * @param out    è¾“å‡ºç¼“å†²
+ * @return 0=æˆåŠŸ, 1=ç´¢å¼•è¶Šç•Œ, 2=CRCæ ¡éªŒå¤±è´¥
  */
 uint8_t ee_hist_read(uint16_t index, EeHistRecord_t *out);
 
 /**
- * »ñÈ¡µ±Ç°ÓĞĞ§¼ÇÂ¼Êı
+ * è·å–å½“å‰æœ‰æ•ˆè®°å½•æ•°
  */
 uint16_t ee_hist_count(void);
 
 /**
- * µ¯³ö×î¾ÉÒ»Ìõ¼ÇÂ¼ (tailÇ°½ø, count--, ±£´æ¹ÜÀíÍ·)
- * ÓÃÓÚÖğÌõÉÏ±¨ºóÉ¾³ı
+ * å¼¹å‡ºæœ€æ—§ä¸€æ¡è®°å½• (tailå‰è¿›, count--, ä¿å­˜ç®¡ç†å¤´)
+ * ç”¨äºé€æ¡ä¸ŠæŠ¥ååˆ é™¤
  */
 void ee_hist_pop(void);
 
 /**
- * Çå¿ÕËùÓĞÀúÊ·¼ÇÂ¼ (¹ÜÀíÍ·¸´Î», ²»²Á³ıÊı¾İÒ³)
+ * æ¸…ç©ºæ‰€æœ‰å†å²è®°å½• (ç®¡ç†å¤´å¤ä½, ä¸æ“¦é™¤æ•°æ®é¡µ)
  */
 void ee_hist_clear(void);
 
 /**
- * ½« BCD Ê±¼ä´Á×ªÎª×Ö·û´® "20YY-MM-DD HH:MM:SS"
- * @param ts_bcd  6×Ö½ÚBCDÊ±¼ä [YY,MM,DD,HH,MM,SS]
- * @param buf     Êä³ö»º³å (ÖÁÉÙ20×Ö½Ú)
+ * å°† BCD æ—¶é—´æˆ³è½¬ä¸ºå­—ç¬¦ä¸² "20YY-MM-DD HH:MM:SS"
+ * @param ts_bcd  6å­—èŠ‚BCDæ—¶é—´ [YY,MM,DD,HH,MM,SS]
+ * @param buf     è¾“å‡ºç¼“å†² (è‡³å°‘20å­—èŠ‚)
  */
 void ee_hist_ts_to_str(const uint8_t *ts_bcd, char *buf);
 
 /**
- * ½«ÀúÊ·¼ÇÂ¼×ªÎª SensorRecord_t ¸ñÊ½ (¼æÈİÏÖÓĞÉÏ±¨½Ó¿Ú)
- * @param hist   EEPROMÀúÊ·¼ÇÂ¼
- * @param out    Êä³ö SensorRecord_t (Ğè°üº¬ sensor_buffer.h)
+ * å°†å†å²è®°å½•è½¬ä¸º SensorRecord_t æ ¼å¼ (å…¼å®¹ç°æœ‰ä¸ŠæŠ¥æ¥å£)
+ * @param hist   EEPROMå†å²è®°å½•
+ * @param out    è¾“å‡º SensorRecord_t (éœ€åŒ…å« sensor_buffer.h)
  */
 void ee_hist_to_sensor_record(const EeHistRecord_t *hist, void *out);
 

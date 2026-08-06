@@ -4,57 +4,57 @@
 #include "stdint.h"
 
 /* ============================================================
- * EEPROM Ğ¾Æ¬ĞÍºÅÑ¡Ôñ£¨±àÒëºê¿ª¹Ø, ·Â PT304D Çı¶¯Ğ­ÒéÑ¡ÔñĞ´·¨£©
- * Ê¹ÓÃ·½·¨: ÆôÓÃ¶ÔÓ¦Ğ¾Æ¬ºê, ×¢ÊÍµôÁíÒ»¸ö; ±ØĞëÇÒÖ»ÄÜÆôÓÃÒ»¸ö
- *   EEPROM_DRV_M24M01  : M24M01-RMN6P 128KB, 256BÒ³, 17Î»µØÖ·(A16)
- *   EEPROM_DRV_AT24C64 : AT24C64 8KB, 32BÒ³, 13Î»µØÖ·
+ * EEPROM èŠ¯ç‰‡å‹å·é€‰æ‹©ï¼ˆç¼–è¯‘å®å¼€å…³, ä»¿ PT304D é©±åŠ¨åè®®é€‰æ‹©å†™æ³•ï¼‰
+ * ä½¿ç”¨æ–¹æ³•: å¯ç”¨å¯¹åº”èŠ¯ç‰‡å®, æ³¨é‡Šæ‰å¦ä¸€ä¸ª; å¿…é¡»ä¸”åªèƒ½å¯ç”¨ä¸€ä¸ª
+ *   EEPROM_DRV_M24M01  : M24M01-RMN6P 128KB, 256Bé¡µ, 17ä½åœ°å€(A16)
+ *   EEPROM_DRV_AT24C64 : AT24C64 8KB, 32Bé¡µ, 13ä½åœ°å€
  * ============================================================ */
 #define EEPROM_DRV_M24M01
 //#define EEPROM_DRV_AT24C64
 
 #if defined(EEPROM_DRV_M24M01) && defined(EEPROM_DRV_AT24C64)
-  #error "EEPROM: Ö»ÄÜÑ¡ÔñÒ»ÖÖĞ¾Æ¬ĞÍºÅ (EEPROM_DRV_M24M01 / EEPROM_DRV_AT24C64)"
+  #error "EEPROM: åªèƒ½é€‰æ‹©ä¸€ç§èŠ¯ç‰‡å‹å· (EEPROM_DRV_M24M01 / EEPROM_DRV_AT24C64)"
 #elif defined(EEPROM_DRV_M24M01)
-  /* ---- M24M01-RMN6P ¹Ø¼ü²ÎÊı£¨¹æ¸ñÊé£©----
-   * - ÈİÁ¿: 1Mbit = 128K Bytes (131072)
-   * - ×éÖ¯: 512Ò³ x 256×Ö½Ú/Ò³
-   * - 17Î»µØÖ·: A16±àÈëÉè±¸µØÖ·×Ö½Ú bit1, A15~A0 Îª 2 ×Ö½Ú×ÖµØÖ·
-   * - Éè±¸µØÖ·×Ö½Ú: 1010 E2 E1 A16 R/W  (E2=E1=0 ½ÓµØ)
-   * - Ò³Ğ´´óĞ¡: 256×Ö½Ú
-   * - Ğ´ÖÜÆÚ: ×î´ó 5ms */
-  #define EEPROM_BASE_ADDR   0xA0    /* »ù´¡Éè±¸µØÖ· 1010_00_0_0 (E2=0,E1=0) */
-  #define EEPROM_PAGE_SIZE   256     /* Ò³´óĞ¡ 256×Ö½Ú */
-  #define EEPROM_TOTAL_SIZE  131072  /* ×ÜÈİÁ¿ 128KB */
-  #define EEPROM_WRITE_TIME  5       /* Ğ´ÖÜÆÚ 5ms */
-  /* ¸ù¾İ17Î»µØÖ·¼ÆËãÉè±¸µØÖ·×Ö½Ú£¨A16±àÈë bit1£© */
+  /* ---- M24M01-RMN6P å…³é”®å‚æ•°ï¼ˆè§„æ ¼ä¹¦ï¼‰----
+   * - å®¹é‡: 1Mbit = 128K Bytes (131072)
+   * - ç»„ç»‡: 512é¡µ x 256å­—èŠ‚/é¡µ
+   * - 17ä½åœ°å€: A16ç¼–å…¥è®¾å¤‡åœ°å€å­—èŠ‚ bit1, A15~A0 ä¸º 2 å­—èŠ‚å­—åœ°å€
+   * - è®¾å¤‡åœ°å€å­—èŠ‚: 1010 E2 E1 A16 R/W  (E2=E1=0 æ¥åœ°)
+   * - é¡µå†™å¤§å°: 256å­—èŠ‚
+   * - å†™å‘¨æœŸ: æœ€å¤§ 5ms */
+  #define EEPROM_BASE_ADDR   0xA0    /* åŸºç¡€è®¾å¤‡åœ°å€ 1010_00_0_0 (E2=0,E1=0) */
+  #define EEPROM_PAGE_SIZE   256     /* é¡µå¤§å° 256å­—èŠ‚ */
+  #define EEPROM_TOTAL_SIZE  131072  /* æ€»å®¹é‡ 128KB */
+  #define EEPROM_WRITE_TIME  5       /* å†™å‘¨æœŸ 5ms */
+  /* æ ¹æ®17ä½åœ°å€è®¡ç®—è®¾å¤‡åœ°å€å­—èŠ‚ï¼ˆA16ç¼–å…¥ bit1ï¼‰ */
   #define EEPROM_DEV_ADDR(full_addr)  (uint8_t)(EEPROM_BASE_ADDR | ((((uint32_t)(full_addr) >> 16) & 0x01) << 1))
-  /* È¡¸ß×Ö½Ú×ÖµØÖ· A15~A8 */
+  /* å–é«˜å­—èŠ‚å­—åœ°å€ A15~A8 */
   #define EEPROM_ADDR_HI(full_addr)   (uint8_t)(((full_addr) >> 8) & 0xFF)
 #elif defined(EEPROM_DRV_AT24C64)
-  /* ---- AT24C64 ¹Ø¼ü²ÎÊı ----
-   * - ÈİÁ¿: 64Kbit = 8K Bytes (8192)
-   * - ×éÖ¯: 256Ò³ x 32×Ö½Ú/Ò³
-   * - 13Î»µØÖ·: 2×Ö½Ú×ÖµØÖ· (¸ß×Ö½ÚµÍ5Î»ÓĞĞ§, A12~A8)
-   * - Éè±¸µØÖ·×Ö½Ú: 1010 E2 E1 0 R/W (E2=E1=0 ½ÓµØ), ºã 0xA0
-   * - Ò³Ğ´´óĞ¡: 32×Ö½Ú
-   * - Ğ´ÖÜÆÚ: ×î´ó 5ms */
-  #define EEPROM_BASE_ADDR   0xA0    /* »ù´¡Éè±¸µØÖ· 1010_00_0_0 (E2=0,E1=0) */
-  #define EEPROM_PAGE_SIZE   32      /* Ò³´óĞ¡ 32×Ö½Ú */
-  #define EEPROM_TOTAL_SIZE  8192    /* ×ÜÈİÁ¿ 8KB */
-  #define EEPROM_WRITE_TIME  5       /* Ğ´ÖÜÆÚ 5ms */
-  /* AT24C64 ÎŞ A16, Éè±¸µØÖ·¹Ì¶¨ 0xA0 */
+  /* ---- AT24C64 å…³é”®å‚æ•° ----
+   * - å®¹é‡: 64Kbit = 8K Bytes (8192)
+   * - ç»„ç»‡: 256é¡µ x 32å­—èŠ‚/é¡µ
+   * - 13ä½åœ°å€: 2å­—èŠ‚å­—åœ°å€ (é«˜å­—èŠ‚ä½5ä½æœ‰æ•ˆ, A12~A8)
+   * - è®¾å¤‡åœ°å€å­—èŠ‚: 1010 E2 E1 0 R/W (E2=E1=0 æ¥åœ°), æ’ 0xA0
+   * - é¡µå†™å¤§å°: 32å­—èŠ‚
+   * - å†™å‘¨æœŸ: æœ€å¤§ 5ms */
+  #define EEPROM_BASE_ADDR   0xA0    /* åŸºç¡€è®¾å¤‡åœ°å€ 1010_00_0_0 (E2=0,E1=0) */
+  #define EEPROM_PAGE_SIZE   32      /* é¡µå¤§å° 32å­—èŠ‚ */
+  #define EEPROM_TOTAL_SIZE  8192    /* æ€»å®¹é‡ 8KB */
+  #define EEPROM_WRITE_TIME  5       /* å†™å‘¨æœŸ 5ms */
+  /* AT24C64 æ—  A16, è®¾å¤‡åœ°å€å›ºå®š 0xA0 */
   #define EEPROM_DEV_ADDR(full_addr)  (EEPROM_BASE_ADDR)
-  /* È¡¸ß×Ö½Ú×ÖµØÖ· A12~A8 (13Î»µØÖ·) */
+  /* å–é«˜å­—èŠ‚å­—åœ°å€ A12~A8 (13ä½åœ°å€) */
   #define EEPROM_ADDR_HI(full_addr)   (uint8_t)(((full_addr) >> 8) & 0x1F)
 #else
-  #error "EEPROM: Î´Ñ¡ÔñĞ¾Æ¬ĞÍºÅ, ÇëÔÚ m24m01.h ÆôÓÃ EEPROM_DRV_M24M01 »ò EEPROM_DRV_AT24C64"
+  #error "EEPROM: æœªé€‰æ‹©èŠ¯ç‰‡å‹å·, è¯·åœ¨ m24m01.h å¯ç”¨ EEPROM_DRV_M24M01 æˆ– EEPROM_DRV_AT24C64"
 #endif
 
-/* È¡µÍ×Ö½Ú×ÖµØÖ· A7~A0 (Á½ÖÖĞ¾Æ¬Ò»ÖÂ) */
+/* å–ä½å­—èŠ‚å­—åœ°å€ A7~A0 (ä¸¤ç§èŠ¯ç‰‡ä¸€è‡´) */
 #define EEPROM_ADDR_LO(full_addr)   (uint8_t)((full_addr) & 0xFF)
 
 /* ============================================================
- * ¼æÈİ¾ÉºêÃû (M24M01_*): ±£³Ö m24m01.c ÓëÍâ²¿µ÷ÓÃ·½ÎŞĞèĞŞ¸Ä
+ * å…¼å®¹æ—§å®å (M24M01_*): ä¿æŒ m24m01.c ä¸å¤–éƒ¨è°ƒç”¨æ–¹æ— éœ€ä¿®æ”¹
  * ============================================================ */
 #define M24M01_BASE_ADDR    EEPROM_BASE_ADDR
 #define M24M01_PAGE_SIZE    EEPROM_PAGE_SIZE
@@ -64,17 +64,17 @@
 #define M24M01_ADDR_HI(full_addr)   EEPROM_ADDR_HI(full_addr)
 #define M24M01_ADDR_LO(full_addr)   EEPROM_ADDR_LO(full_addr)
 
-/* Ğ´µ¥×Ö½Ú */
+/* å†™å•å­—èŠ‚ */
 uint8_t M24M01_WriteByte(uint32_t addr, uint8_t data);
-/* Ò³Ğ´£¨×î´ó 256 ×Ö½Ú£¬²»¿É¿çÒ³£© */
+/* é¡µå†™ï¼ˆæœ€å¤§ 256 å­—èŠ‚ï¼Œä¸å¯è·¨é¡µï¼‰ */
 uint8_t M24M01_WritePage(uint32_t addr, const uint8_t *data, uint16_t len);
-/* ÈÎÒâ³¤¶ÈĞ´£¨×Ô¶¯·ÖÒ³£¬Ö§³Ö¿çÒ³£© */
+/* ä»»æ„é•¿åº¦å†™ï¼ˆè‡ªåŠ¨åˆ†é¡µï¼Œæ”¯æŒè·¨é¡µï¼‰ */
 uint8_t M24M01_Write(uint32_t addr, const uint8_t *data, uint16_t len);
-/* Ëæ»ú¶Á£¨ÈÎÒâµØÖ·£¬ÈÎÒâ³¤¶È£© */
+/* éšæœºè¯»ï¼ˆä»»æ„åœ°å€ï¼Œä»»æ„é•¿åº¦ï¼‰ */
 uint8_t M24M01_Read(uint32_t addr, uint8_t *buf, uint16_t len);
-/* ACKÂÖÑ¯µÈ´ıĞ´ÖÜÆÚÍê³É */
+/* ACKè½®è¯¢ç­‰å¾…å†™å‘¨æœŸå®Œæˆ */
 uint8_t M24M01_WaitReady(uint32_t addr, uint16_t timeout_ms);
-/* ¶ÁĞ´²âÊÔ£¨Í¨¹ıµ÷ÊÔ´®¿ÚÊä³ö½á¹û£© */
+/* è¯»å†™æµ‹è¯•ï¼ˆé€šè¿‡è°ƒè¯•ä¸²å£è¾“å‡ºç»“æœï¼‰ */
 void M24M01_Test(void);
 
 #endif

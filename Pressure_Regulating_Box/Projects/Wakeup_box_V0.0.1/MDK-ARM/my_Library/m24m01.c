@@ -5,10 +5,10 @@
 #include "gd32l23x.h"
 #include <string.h>
 
-/* ===================== I2C µç×Ó¿ª¹Ø PD4 (SW_IIC) ¹ÜÀí =====================
- * PD4 = SW_IIC µç×Ó¿ª¹Ø (TPS22918), ¿ØÖÆËùÓĞ I2C Éè±¸µçÔ´
- * Ä¬ÈÏ LOW ½ÚÄÜ; Ã¿´Î EEPROM ¶Á/Ğ´Ç°×Ô¶¯ set + 20ms ÉÏµçÎÈ¶¨, ²Ù×÷ºó reset
- * ½Ó¿Úµ÷ÓÃÕßÎŞĞè¹ØĞÄ PD4 ×´Ì¬ (Óë´«¸ĞÆ÷²É¼¯Â·¾¶¹²ÓÃ, PD4 ×´Ì¬¶ÀÁ¢)
+/* ===================== I2C ç”µå­å¼€å…³ PD4 (SW_IIC) ç®¡ç† =====================
+ * PD4 = SW_IIC ç”µå­å¼€å…³ (TPS22918), æ§åˆ¶æ‰€æœ‰ I2C è®¾å¤‡ç”µæº
+ * é»˜è®¤ LOW èŠ‚èƒ½; æ¯æ¬¡ EEPROM è¯»/å†™å‰è‡ªåŠ¨ set + 20ms ä¸Šç”µç¨³å®š, æ“ä½œå reset
+ * æ¥å£è°ƒç”¨è€…æ— éœ€å…³å¿ƒ PD4 çŠ¶æ€ (ä¸ä¼ æ„Ÿå™¨é‡‡é›†è·¯å¾„å…±ç”¨, PD4 çŠ¶æ€ç‹¬ç«‹)
  */
 static uint8_t s_pwr_init_done = 0;
 
@@ -25,8 +25,8 @@ static inline void m24m01_pwr_on(void)
     }
 
     gpio_bit_set(GPIOD, GPIO_PIN_4);
-    trea_delay_ms(20);   // EEPROM ÉÏµçÎÈ¶¨ (ÊÖ²áµäĞÍ 1ms, ÁôÓàÁ¿)
-    IIC_Init();          // ÖØĞÂÅäÖÃ PC0/PC1 GPIO + ×ÜÏßËÀËø»Ö¸´ (Óë´«¸ĞÆ÷¹²ÓÃ×ÜÏß)
+    trea_delay_ms(20);   // EEPROM ä¸Šç”µç¨³å®š (æ‰‹å†Œå…¸å‹ 1ms, ç•™ä½™é‡)
+    IIC_Init();          // é‡æ–°é…ç½® PC0/PC1 GPIO + æ€»çº¿æ­»é”æ¢å¤ (ä¸ä¼ æ„Ÿå™¨å…±ç”¨æ€»çº¿)
 }
 
 static inline void m24m01_pwr_off(void)
@@ -35,21 +35,21 @@ static inline void m24m01_pwr_off(void)
 }
 
 /*
- * EEPROM Çı¶¯£¨M24M01 / AT24C64 ±àÒëÑ¡Ôñ, ¿ª¹Ø¼û m24m01.h µÄ EEPROM_DRV_*£©
+ * EEPROM é©±åŠ¨ï¼ˆM24M01 / AT24C64 ç¼–è¯‘é€‰æ‹©, å¼€å…³è§ m24m01.h çš„ EEPROM_DRV_*ï¼‰
  *
- * µØÖ·»úÖÆ:
- *   M24M01: 17Î»µØÖ· = A16±àÈëÉè±¸µØÖ·×Ö½Úbit1 + 2×Ö½Ú×ÖµØÖ·(A15~A0)
- *   AT24C64: 13Î»µØÖ· = 2×Ö½Ú×ÖµØÖ·(¸ß×Ö½ÚµÍ5Î»ÓĞĞ§, A12~A8)
- *   Éè±¸µØÖ·×Ö½Ú: 1010 E2 E1 [A16] R/W  (E2=E1=0)
- *   ·¢ËÍ 2 ×Ö½Ú×ÖµØÖ·: ÏÈ¸ß×Ö½Ú ÔÙµÍ×Ö½Ú
+ * åœ°å€æœºåˆ¶:
+ *   M24M01: 17ä½åœ°å€ = A16ç¼–å…¥è®¾å¤‡åœ°å€å­—èŠ‚bit1 + 2å­—èŠ‚å­—åœ°å€(A15~A0)
+ *   AT24C64: 13ä½åœ°å€ = 2å­—èŠ‚å­—åœ°å€(é«˜å­—èŠ‚ä½5ä½æœ‰æ•ˆ, A12~A8)
+ *   è®¾å¤‡åœ°å€å­—èŠ‚: 1010 E2 E1 [A16] R/W  (E2=E1=0)
+ *   å‘é€ 2 å­—èŠ‚å­—åœ°å€: å…ˆé«˜å­—èŠ‚ å†ä½å­—èŠ‚
  *
- * Ò³Ğ´¹æÔò: Ã¿Ò³ EEPROM_PAGE_SIZE ×Ö½Ú (M24M01=256 / AT24C64=32),
- *   Ò³±ß½ç = addr & ~(EEPROM_PAGE_SIZE-1); Ğ´Èë²»¿É¿çÒ³, ¿çÒ³Ê±µØÖ·»á»Ø¾íµ½Ò³Ê×
+ * é¡µå†™è§„åˆ™: æ¯é¡µ EEPROM_PAGE_SIZE å­—èŠ‚ (M24M01=256 / AT24C64=32),
+ *   é¡µè¾¹ç•Œ = addr & ~(EEPROM_PAGE_SIZE-1); å†™å…¥ä¸å¯è·¨é¡µ, è·¨é¡µæ—¶åœ°å€ä¼šå›å·åˆ°é¡µé¦–
  *
- * Ğ´ÖÜÆÚ: Ã¿´ÎĞ´²Ù×÷(µ¥×Ö½Ú»òÒ³Ğ´)ºóĞèµÈ´ı×î´ó 5ms
+ * å†™å‘¨æœŸ: æ¯æ¬¡å†™æ“ä½œ(å•å­—èŠ‚æˆ–é¡µå†™)åéœ€ç­‰å¾…æœ€å¤§ 5ms
  */
 
-/* ===================== ACKÂÖÑ¯µÈ´ıĞ´ÖÜÆÚÍê³É ===================== */
+/* ===================== ACKè½®è¯¢ç­‰å¾…å†™å‘¨æœŸå®Œæˆ ===================== */
 uint8_t M24M01_WaitReady(uint32_t addr, uint16_t timeout_ms)
 {
     uint8_t dev_byte = M24M01_DEV_ADDR(addr);
@@ -70,7 +70,7 @@ uint8_t M24M01_WaitReady(uint32_t addr, uint16_t timeout_ms)
     return 1;
 }
 
-/* ===================== Ğ´µ¥×Ö½Ú ===================== */
+/* ===================== å†™å•å­—èŠ‚ ===================== */
 uint8_t M24M01_WriteByte(uint32_t addr, uint8_t data)
 {
     uint8_t dev_byte = M24M01_DEV_ADDR(addr);
@@ -102,7 +102,7 @@ uint8_t M24M01_WriteByte(uint32_t addr, uint8_t data)
     return ret;
 }
 
-/* ===================== Ò³Ğ´£¨²»¿É¿çÒ³£¬µ÷ÓÃÕß±£Ö¤£© ===================== */
+/* ===================== é¡µå†™ï¼ˆä¸å¯è·¨é¡µï¼Œè°ƒç”¨è€…ä¿è¯ï¼‰ ===================== */
 uint8_t M24M01_WritePage(uint32_t addr, const uint8_t *data, uint16_t len)
 {
     uint8_t dev_byte = M24M01_DEV_ADDR(addr);
@@ -112,7 +112,7 @@ uint8_t M24M01_WritePage(uint32_t addr, const uint8_t *data, uint16_t len)
     uint8_t ret;
 
     if(addr >= M24M01_TOTAL_SIZE || len == 0 || len > M24M01_PAGE_SIZE) return 1;
-    /* ¿çÒ³±£»¤: ±¾´ÎĞ´Èë²»ÄÜÔ½¹ı 256B Ò³±ß½ç */
+    /* è·¨é¡µä¿æŠ¤: æœ¬æ¬¡å†™å…¥ä¸èƒ½è¶Šè¿‡ 256B é¡µè¾¹ç•Œ */
     if(((uint32_t)(addr & (M24M01_PAGE_SIZE - 1)) + len) > M24M01_PAGE_SIZE) return 1;
 
     m24m01_pwr_on();
@@ -140,7 +140,7 @@ uint8_t M24M01_WritePage(uint32_t addr, const uint8_t *data, uint16_t len)
     return ret;
 }
 
-/* ===================== ÈÎÒâ³¤¶ÈĞ´£¨×Ô¶¯·ÖÒ³£© ===================== */
+/* ===================== ä»»æ„é•¿åº¦å†™ï¼ˆè‡ªåŠ¨åˆ†é¡µï¼‰ ===================== */
 uint8_t M24M01_Write(uint32_t addr, const uint8_t *data, uint16_t len)
 {
     uint16_t offset = 0;
@@ -148,7 +148,7 @@ uint8_t M24M01_Write(uint32_t addr, const uint8_t *data, uint16_t len)
 
     while(offset < len)
     {
-        /* µ±Ç°Ò³Ê£Óà¿ÉĞ´×Ö½ÚÊı (Ò³´óĞ¡ 256) */
+        /* å½“å‰é¡µå‰©ä½™å¯å†™å­—èŠ‚æ•° (é¡µå¤§å° 256) */
         uint16_t page_remain = (uint16_t)(M24M01_PAGE_SIZE - ((addr + offset) % M24M01_PAGE_SIZE));
         uint16_t left = len - offset;
         uint16_t chunk = (left < page_remain) ? left : page_remain;
@@ -161,7 +161,7 @@ uint8_t M24M01_Write(uint32_t addr, const uint8_t *data, uint16_t len)
     return 0;
 }
 
-/* ===================== Ëæ»ú¶Á£¨ÈÎÒâµØÖ·¡¢ÈÎÒâ³¤¶È£© ===================== */
+/* ===================== éšæœºè¯»ï¼ˆä»»æ„åœ°å€ã€ä»»æ„é•¿åº¦ï¼‰ ===================== */
 uint8_t M24M01_Read(uint32_t addr, uint8_t *buf, uint16_t len)
 {
     uint8_t dev_byte = M24M01_DEV_ADDR(addr);
@@ -173,28 +173,28 @@ uint8_t M24M01_Read(uint32_t addr, uint8_t *buf, uint16_t len)
 
     m24m01_pwr_on();
 
-    /* µÚÒ»Ö¡: Dummy Write, ÉèÖÃ¶ÁÆğÊ¼µØÖ· (2×Ö½Ú) */
+    /* ç¬¬ä¸€å¸§: Dummy Write, è®¾ç½®è¯»èµ·å§‹åœ°å€ (2å­—èŠ‚) */
     IIC_Start();
-    IIC_Send_Byte(dev_byte | 0x00);          // Éè±¸µØÖ· + Ğ´Î»
+    IIC_Send_Byte(dev_byte | 0x00);          // è®¾å¤‡åœ°å€ + å†™ä½
     if(IIC_Wait_Ack(1000) != 0) { IIC_Stop(); m24m01_pwr_off(); return 2; }
 
-    IIC_Send_Byte(addr_hi);                  // ×ÖµØÖ·¸ß×Ö½Ú A15~A8
+    IIC_Send_Byte(addr_hi);                  // å­—åœ°å€é«˜å­—èŠ‚ A15~A8
     if(IIC_Wait_Ack(1000) != 0) { IIC_Stop(); m24m01_pwr_off(); return 3; }
 
-    IIC_Send_Byte(addr_lo);                  // ×ÖµØÖ·µÍ×Ö½Ú A7~A0
+    IIC_Send_Byte(addr_lo);                  // å­—åœ°å€ä½å­—èŠ‚ A7~A0
     if(IIC_Wait_Ack(1000) != 0) { IIC_Stop(); m24m01_pwr_off(); return 4; }
 
-    /* µÚ¶şÖ¡: ÖØ¸´ÆğÊ¼ + ¶ÁÊı¾İ */
+    /* ç¬¬äºŒå¸§: é‡å¤èµ·å§‹ + è¯»æ•°æ® */
     IIC_Start();
-    IIC_Send_Byte(dev_byte | 0x01);          // Éè±¸µØÖ· + ¶ÁÎ»
+    IIC_Send_Byte(dev_byte | 0x01);          // è®¾å¤‡åœ°å€ + è¯»ä½
     if(IIC_Wait_Ack(1000) != 0) { IIC_Stop(); m24m01_pwr_off(); return 5; }
 
     for(i = 0; i < len; i++)
     {
         if(i == len - 1)
-            buf[i] = IIC_Read_Byte(0);       // ×îºó×Ö½Ú: NACK
+            buf[i] = IIC_Read_Byte(0);       // æœ€åå­—èŠ‚: NACK
         else
-            buf[i] = IIC_Read_Byte(1);       // ÆäÓà: ACK£¨¼ÌĞø¶Á£©
+            buf[i] = IIC_Read_Byte(1);       // å…¶ä½™: ACKï¼ˆç»§ç»­è¯»ï¼‰
     }
 
     IIC_Stop();
@@ -202,7 +202,7 @@ uint8_t M24M01_Read(uint32_t addr, uint8_t *buf, uint16_t len)
     return 0;
 }
 
-/* ===================== Õï¶Ï²âÊÔ ===================== */
+/* ===================== è¯Šæ–­æµ‹è¯• ===================== */
 void M24M01_Test(void)
 {
     uint8_t ret, val;
@@ -210,10 +210,10 @@ void M24M01_Test(void)
 
     printf_debug("\r\n===== M24M01 Diagnostic Start =====\r\n");
 
-    // I2C¿ª¹ØÉÏµç + I2C³õÊ¼»¯
+    // I2Cå¼€å…³ä¸Šç”µ + I2Cåˆå§‹åŒ–
     m24m01_pwr_on();
 
-    // ---- Õï¶ÏA: SDA GPIO×Ô¼ì ----
+    // ---- è¯Šæ–­A: SDA GPIOè‡ªæ£€ ----
     printf_debug("[DiagA] SDA GPIO self-test:\r\n");
     IIC_SDA_H();
     IIC_Delay(); IIC_Delay(); IIC_Delay();
@@ -224,7 +224,7 @@ void M24M01_Test(void)
     IIC_SDA_H();
     IIC_SCL_H();
 
-    // ---- Õï¶ÏB: I2C×ÜÏßÉ¨Ãè (E2=E1=0: M24M01 ÏìÓ¦ 0xA0/0xA2, AT24C64 Ö»ÏìÓ¦ 0xA0) ----
+    // ---- è¯Šæ–­B: I2Cæ€»çº¿æ‰«æ (E2=E1=0: M24M01 å“åº” 0xA0/0xA2, AT24C64 åªå“åº” 0xA0) ----
     printf_debug("[DiagB] I2C bus scan (addr 0xA0~0xAE):\r\n");
     {
         uint8_t a;
@@ -240,17 +240,17 @@ void M24M01_Test(void)
     }
 
 #if defined(EEPROM_DRV_M24M01)
-    // ---- Õï¶ÏC: ¶ÁÎ´Ğ´¹ıµÄ¸ßµØÖ· (A16=1 ÇøÓò, ¿ÕÆ¬Ó¦·µ»Ø0xFF) ----
+    // ---- è¯Šæ–­C: è¯»æœªå†™è¿‡çš„é«˜åœ°å€ (A16=1 åŒºåŸŸ, ç©ºç‰‡åº”è¿”å›0xFF) ----
     test_addr = 0x1FFF0;
 #else
-    // ---- Õï¶ÏC: ¶ÁÎ´Ğ´¹ıµÄ¸ßµØÖ· (AT24C64 8KBÄÚ, ¿ÕÆ¬Ó¦·µ»Ø0xFF) ----
+    // ---- è¯Šæ–­C: è¯»æœªå†™è¿‡çš„é«˜åœ°å€ (AT24C64 8KBå†…, ç©ºç‰‡åº”è¿”å›0xFF) ----
     test_addr = 0x1FF0;
 #endif
     ret = M24M01_Read(test_addr, &val, 1);
     printf_debug("[DiagC] Read virgin addr=0x%05lX: ret=%d val=0x%02X (expect 0xFF)\r\n",
                  (unsigned long)test_addr, ret, val);
 
-    // ---- Õï¶ÏD: µ¥×Ö½ÚĞ´+¶Á (µÍµØÖ·Çø) ----
+    // ---- è¯Šæ–­D: å•å­—èŠ‚å†™+è¯» (ä½åœ°å€åŒº) ----
     test_addr = 0x0050;
     printf_debug("[DiagD] WriteByte addr=0x%05lX data=0xA5\r\n", (unsigned long)test_addr);
     ret = M24M01_WriteByte(test_addr, 0xA5);
@@ -265,7 +265,7 @@ void M24M01_Test(void)
     else
         printf_debug("  -> FAIL (expect 0xA5, got 0x%02X)\r\n", val);
 
-    // ---- Õï¶ÏE: Ğ´ 0x55 ÔÙ¶Á£¨²»Í¬Êı¾İÅÅ³ıÇÉºÏ£© ----
+    // ---- è¯Šæ–­E: å†™ 0x55 å†è¯»ï¼ˆä¸åŒæ•°æ®æ’é™¤å·§åˆï¼‰ ----
     printf_debug("[DiagE] WriteByte addr=0x%05lX data=0x55\r\n", (unsigned long)test_addr);
     ret = M24M01_WriteByte(test_addr, 0x55);
     printf_debug("  WriteByte ret=%d\r\n", ret);
@@ -279,7 +279,7 @@ void M24M01_Test(void)
     else
         printf_debug("  -> FAIL (expect 0x55, got 0x%02X)\r\n", val);
 
-    // ---- Õï¶ÏF: ¸ßµØÖ·ÇøĞ´+¶Á (M24M01: A16=1 ÑéÖ¤µÚ¶ş¸ö 64KB; AT24C64: 8KBÄÚ¸ßµØÖ·) ----
+    // ---- è¯Šæ–­F: é«˜åœ°å€åŒºå†™+è¯» (M24M01: A16=1 éªŒè¯ç¬¬äºŒä¸ª 64KB; AT24C64: 8KBå†…é«˜åœ°å€) ----
 #if defined(EEPROM_DRV_M24M01)
     test_addr = 0x1FF50;
 #else

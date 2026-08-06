@@ -1,14 +1,14 @@
 /**
  * @file eeprom_history.c
- * @brief EEPROM ÀúÊ·Êı¾İ»·ĞÎ»º³åÊµÏÖ (M24M01, 128KB)
+ * @brief EEPROM å†å²æ•°æ®ç¯å½¢ç¼“å†²å®ç° (M24M01, 128KB)
  *
- * ´æ´¢Çø: 0x1000 ~ 0x1FFFF
- *   ¹ÜÀíÍ· (8·İ x 32B @0x1000, Õ¼1Ò³): magic(2)+version(1)+copy_idx(1)+seq(4)+head(2)+tail(2)+count(2)+crc8(1)+reserved(17)
- *   Êı¾İÇø (126720B @0x1100): 3960Ìõ x 32B
+ * å­˜å‚¨åŒº: 0x1000 ~ 0x1FFFF
+ *   ç®¡ç†å¤´ (8ä»½ x 32B @0x1000, å 1é¡µ): magic(2)+version(1)+copy_idx(1)+seq(4)+head(2)+tail(2)+count(2)+crc8(1)+reserved(17)
+ *   æ•°æ®åŒº (126720B @0x1100): 3960æ¡ x 32B
  *
- * Ä¥Ëğ¾ùºâ: Ã¿´Î±£´æ¹ÜÀíÍ·Ğ´ÈëÏÂÒ»¸ö¸±±¾ (seqµİÔö), Æô¶¯Ê±Ñ¡Ôñ seq ×î´óµÄÓĞĞ§¸±±¾.
- * µôµçÒ»ÖÂĞÔ: ÏÈĞ´¼ÇÂ¼Êı¾İ, ÔÙĞ´¹ÜÀíÍ·; ÖĞÍ¾µôµç×î¶à¶ªÊ§ÕıÔÚĞ´ÈëµÄÒ»Ìõ, »·ĞÎ½á¹¹²»Ëğ»µ.
- * »·ĞÎ¸²¸Ç²ßÂÔ: Ğ´Âúºó head ×Ô¶¯Ç°½ø, ¸²¸Ç×î¾É¼ÇÂ¼.
+ * ç£¨æŸå‡è¡¡: æ¯æ¬¡ä¿å­˜ç®¡ç†å¤´å†™å…¥ä¸‹ä¸€ä¸ªå‰¯æœ¬ (seqé€’å¢), å¯åŠ¨æ—¶é€‰æ‹© seq æœ€å¤§çš„æœ‰æ•ˆå‰¯æœ¬.
+ * æ‰ç”µä¸€è‡´æ€§: å…ˆå†™è®°å½•æ•°æ®, å†å†™ç®¡ç†å¤´; ä¸­é€”æ‰ç”µæœ€å¤šä¸¢å¤±æ­£åœ¨å†™å…¥çš„ä¸€æ¡, ç¯å½¢ç»“æ„ä¸æŸå.
+ * ç¯å½¢è¦†ç›–ç­–ç•¥: å†™æ»¡å head è‡ªåŠ¨å‰è¿›, è¦†ç›–æœ€æ—§è®°å½•.
  */
 
 #include "eeprom_history.h"
@@ -19,24 +19,24 @@
 #include <string.h>
 #include <stdio.h>
 
-// ==================== ¹ÜÀíÍ·½á¹¹ (32×Ö½Ú, Óë¼ÇÂ¼´óĞ¡¶ÔÆë) ====================
+// ==================== ç®¡ç†å¤´ç»“æ„ (32å­—èŠ‚, ä¸è®°å½•å¤§å°å¯¹é½) ====================
 typedef struct {
     uint16_t magic;          // EE_HIST_MAGIC
     uint8_t  version;        // EE_HIST_VERSION
-    uint8_t  copy_idx;       // ¸±±¾ĞòºÅ 0~7
-    uint32_t seq;            // µ¥µ÷µİÔöĞ´ÈëĞòºÅ (Ñ¡Ôñ×îĞÂ¸±±¾)
-    uint16_t head;           // Ğ´Ö¸Õë (ÏÂÒ»Ğ´Èëslot, 0~3959)
-    uint16_t tail;           // ¶ÁÖ¸Õë (×î¾É¼ÇÂ¼slot)
-    uint16_t count;          // ÓĞĞ§¼ÇÂ¼Êı (0~3960)
-    uint8_t  crc8;           // Ç°14×Ö½ÚµÄCRC8
-    uint8_t  reserved[17];   // Ìî³äµ½32×Ö½Ú
+    uint8_t  copy_idx;       // å‰¯æœ¬åºå· 0~7
+    uint32_t seq;            // å•è°ƒé€’å¢å†™å…¥åºå· (é€‰æ‹©æœ€æ–°å‰¯æœ¬)
+    uint16_t head;           // å†™æŒ‡é’ˆ (ä¸‹ä¸€å†™å…¥slot, 0~3959)
+    uint16_t tail;           // è¯»æŒ‡é’ˆ (æœ€æ—§è®°å½•slot)
+    uint16_t count;          // æœ‰æ•ˆè®°å½•æ•° (0~3960)
+    uint8_t  crc8;           // å‰14å­—èŠ‚çš„CRC8
+    uint8_t  reserved[17];   // å¡«å……åˆ°32å­—èŠ‚
 } EeHistHeader_t;
 
-// ==================== RAM »º´æ¹ÜÀíÍ· (±ÜÃâÆµ·±¶ÁEEPROM) ====================
+// ==================== RAM ç¼“å­˜ç®¡ç†å¤´ (é¿å…é¢‘ç¹è¯»EEPROM) ====================
 static EeHistHeader_t s_hdr;
 static uint8_t s_inited = 0;
 
-// ==================== CRC8 (¶àÏîÊ½ 0x07, ³õÖµ 0x00) ====================
+// ==================== CRC8 (å¤šé¡¹å¼ 0x07, åˆå€¼ 0x00) ====================
 static uint8_t crc8_calc(const uint8_t *data, uint16_t len)
 {
     uint8_t crc = 0x00;
@@ -56,7 +56,7 @@ static uint8_t crc8_calc(const uint8_t *data, uint16_t len)
     return crc;
 }
 
-// ==================== ÄÚ²¿: Ğ´¹ÜÀíÍ· (ÂÖ»»¸±±¾, Ä¥Ëğ¾ùºâ) ====================
+// ==================== å†…éƒ¨: å†™ç®¡ç†å¤´ (è½®æ¢å‰¯æœ¬, ç£¨æŸå‡è¡¡) ====================
 static void header_save(void)
 {
     s_hdr.seq++;
@@ -66,7 +66,7 @@ static void header_save(void)
                  (const uint8_t *)&s_hdr, sizeof(EeHistHeader_t));
 }
 
-// ==================== ÄÚ²¿: ´ÓEEPROM¶Á¹ÜÀíÍ· (Ñ¡Ôñ×îĞÂÓĞĞ§¸±±¾) ====================
+// ==================== å†…éƒ¨: ä»EEPROMè¯»ç®¡ç†å¤´ (é€‰æ‹©æœ€æ–°æœ‰æ•ˆå‰¯æœ¬) ====================
 static uint8_t header_load(void)
 {
     uint8_t  i;
@@ -79,13 +79,13 @@ static uint8_t header_load(void)
         M24M01_Read(EE_HIST_HEADER_BASE + (uint32_t)i * EE_HIST_RECORD_SIZE,
                     (uint8_t *)&tmp, sizeof(EeHistHeader_t));
 
-        /* Ğ£Ñé magic + °æ±¾ + CRC */
+        /* æ ¡éªŒ magic + ç‰ˆæœ¬ + CRC */
         if(tmp.magic != EE_HIST_MAGIC || tmp.version != EE_HIST_VERSION)
             continue;
         if(tmp.crc8 != crc8_calc((const uint8_t *)&tmp, 14))
             continue;
 
-        /* Ñ¡ÔñĞ´ÈëĞòºÅ×î´óµÄ¸±±¾ */
+        /* é€‰æ‹©å†™å…¥åºå·æœ€å¤§çš„å‰¯æœ¬ */
         if(best_idx == 0xFF || tmp.seq > best_seq)
         {
             best_idx = i;
@@ -94,11 +94,11 @@ static uint8_t header_load(void)
     }
 
     if(best_idx == 0xFF)
-        return 1;   /* ÎŞÓĞĞ§¸±±¾ */
+        return 1;   /* æ— æœ‰æ•ˆå‰¯æœ¬ */
 
     s_hdr = tmp;
 
-    /* ·¶Î§Ğ£Ñé */
+    /* èŒƒå›´æ ¡éªŒ */
     if(s_hdr.head >= EE_HIST_MAX_RECORDS ||
        s_hdr.tail >= EE_HIST_MAX_RECORDS ||
        s_hdr.count > EE_HIST_MAX_RECORDS)
@@ -107,7 +107,7 @@ static uint8_t header_load(void)
     return 0;
 }
 
-// ==================== ÄÚ²¿: ¸ñÊ½»¯ (Çå¿Õ) ÀúÊ·Çø ====================
+// ==================== å†…éƒ¨: æ ¼å¼åŒ– (æ¸…ç©º) å†å²åŒº ====================
 static void history_format(void)
 {
     uint8_t i;
@@ -119,7 +119,7 @@ static void history_format(void)
     s_hdr.tail     = 0;
     s_hdr.count    = 0;
 
-    /* 8·İ¸±±¾È«²¿Ğ´ÈëÈ«ĞÂ×´Ì¬ (seq=0~7), ±£Ö¤ÈÎÒâ¸±±¾¿É»Ö¸´ */
+    /* 8ä»½å‰¯æœ¬å…¨éƒ¨å†™å…¥å…¨æ–°çŠ¶æ€ (seq=0~7), ä¿è¯ä»»æ„å‰¯æœ¬å¯æ¢å¤ */
     for(i = 0; i < EE_HIST_HEADER_COPIES; i++)
     {
         s_hdr.seq      = i;
@@ -130,7 +130,7 @@ static void history_format(void)
     }
 }
 
-// ==================== ÄÚ²¿: »ñÈ¡BCDÊ±¼ä´Á ====================
+// ==================== å†…éƒ¨: è·å–BCDæ—¶é—´æˆ³ ====================
 static void get_bcd_timestamp(uint8_t *ts_bcd)
 {
     rtc_parameter_struct tp;
@@ -143,20 +143,20 @@ static void get_bcd_timestamp(uint8_t *ts_bcd)
     ts_bcd[5] = (uint8_t)(tp.second & 0xFF);  // SS (BCD)
 }
 
-// ==================== ÄÚ²¿: ¼ÆËã¼ÇÂ¼EEPROMµØÖ· (×¢Òâ: ±ØĞë uint32) ====================
+// ==================== å†…éƒ¨: è®¡ç®—è®°å½•EEPROMåœ°å€ (æ³¨æ„: å¿…é¡» uint32) ====================
 static uint32_t record_addr(uint16_t slot)
 {
     return EE_HIST_DATA_ADDR + (uint32_t)slot * EE_HIST_RECORD_SIZE;
 }
 
-// ==================== ÄÚ²¿: ÇáÁ¿±ß½çĞŞ¸´ (ÉÏµç»Ö¸´ºóµ÷ÓÃ) ====================
+// ==================== å†…éƒ¨: è½»é‡è¾¹ç•Œä¿®å¤ (ä¸Šç”µæ¢å¤åè°ƒç”¨) ====================
 static void boundary_repair(void)
 {
     EeHistRecord_t rec;
     uint16_t guard = 0;
     uint8_t saved_crc;
 
-    /* Ğ£Ñé×î¾É¼ÇÂ¼ (tail); CRC Ëğ»µÔòÌø¹ı, ×î¶àÁ¬ĞøÌø¹ı 4 Ìõ */
+    /* æ ¡éªŒæœ€æ—§è®°å½• (tail); CRC æŸååˆ™è·³è¿‡, æœ€å¤šè¿ç»­è·³è¿‡ 4 æ¡ */
     while(s_hdr.count > 0 && guard < 4)
     {
         if(M24M01_Read(record_addr(s_hdr.tail), (uint8_t *)&rec, EE_HIST_RECORD_SIZE) != 0)
@@ -170,7 +170,7 @@ static void boundary_repair(void)
         guard++;
     }
 
-    /* Ğ£Ñé×îĞÂ¼ÇÂ¼ (head Ç°Ò»Ìõ); Ëğ»µÔò»ØÍË head, ÏÂ´ÎĞ´Èë¸²¸Ç */
+    /* æ ¡éªŒæœ€æ–°è®°å½• (head å‰ä¸€æ¡); æŸååˆ™å›é€€ head, ä¸‹æ¬¡å†™å…¥è¦†ç›– */
     if(s_hdr.count > 0)
     {
         uint16_t last_slot = (uint16_t)((s_hdr.head + EE_HIST_MAX_RECORDS - 1) % EE_HIST_MAX_RECORDS);
@@ -188,10 +188,10 @@ static void boundary_repair(void)
     }
 
     if(guard > 0)
-        header_save();   /* ÌŞ³ı¹ıËğ»µ¼ÇÂ¼, ÂäÅÌĞÂ×´Ì¬ */
+        header_save();   /* å‰”é™¤è¿‡æŸåè®°å½•, è½ç›˜æ–°çŠ¶æ€ */
 }
 
-// ==================== ¹«¿ª½Ó¿Ú ====================
+// ==================== å…¬å¼€æ¥å£ ====================
 
 void ee_hist_init(void)
 {
@@ -220,7 +220,7 @@ void ee_hist_push(float pressure, float temperature,
 
     if(!s_inited) return;
 
-    /* Ìî³ä¼ÇÂ¼ */
+    /* å¡«å……è®°å½• */
     rec.pressure = pressure;
     rec.temperature = temperature;
     rec.pressure2 = pressure2;
@@ -230,14 +230,14 @@ void ee_hist_push(float pressure, float temperature,
     rec.flags = flags;
     memset(rec.reserved, 0, sizeof(rec.reserved));
 
-    /* ¼ÆËãCRC8 (Ç°31×Ö½Ú) */
+    /* è®¡ç®—CRC8 (å‰31å­—èŠ‚) */
     rec.crc8 = 0;
     rec.crc8 = crc8_calc((const uint8_t *)&rec, EE_HIST_RECORD_SIZE - 1);
 
-    /* ÏÈĞ´¼ÇÂ¼Êı¾İ, ºó¸üĞÂ¹ÜÀíÍ· (µôµç×î¶à¶ªÕâÒ»Ìõ) */
+    /* å…ˆå†™è®°å½•æ•°æ®, åæ›´æ–°ç®¡ç†å¤´ (æ‰ç”µæœ€å¤šä¸¢è¿™ä¸€æ¡) */
     M24M01_Write(record_addr(s_hdr.head), (const uint8_t *)&rec, EE_HIST_RECORD_SIZE);
 
-    /* ¸üĞÂ»·ĞÎÖ¸Õë */
+    /* æ›´æ–°ç¯å½¢æŒ‡é’ˆ */
     s_hdr.head = (uint16_t)((s_hdr.head + 1) % EE_HIST_MAX_RECORDS);
     if(s_hdr.count < EE_HIST_MAX_RECORDS)
     {
@@ -245,7 +245,7 @@ void ee_hist_push(float pressure, float temperature,
     }
     else
     {
-        /* ÂúÁË, tail¸úËæÇ°½ø (¸²¸Ç×î¾É) */
+        /* æ»¡äº†, tailè·Ÿéšå‰è¿› (è¦†ç›–æœ€æ—§) */
         s_hdr.tail = (uint16_t)((s_hdr.tail + 1) % EE_HIST_MAX_RECORDS);
     }
 
@@ -257,19 +257,19 @@ uint8_t ee_hist_read(uint16_t index, EeHistRecord_t *out)
     if(!s_inited || !out) return 1;
     if(index >= s_hdr.count) return 1;
 
-    /* ¼ÆËãÊµ¼Êslot */
+    /* è®¡ç®—å®é™…slot */
     uint16_t slot = (uint16_t)((s_hdr.tail + index) % EE_HIST_MAX_RECORDS);
 
     M24M01_Read(record_addr(slot), (uint8_t *)out, EE_HIST_RECORD_SIZE);
 
-    /* CRCĞ£Ñé */
+    /* CRCæ ¡éªŒ */
     uint8_t saved_crc = out->crc8;
     out->crc8 = 0;
     uint8_t calc_crc = crc8_calc((const uint8_t *)out, EE_HIST_RECORD_SIZE - 1);
     out->crc8 = saved_crc;
 
     if(saved_crc != calc_crc)
-        return 2;  /* CRCÊ§°Ü */
+        return 2;  /* CRCå¤±è´¥ */
 
     return 0;
 }
@@ -315,6 +315,6 @@ void ee_hist_to_sensor_record(const EeHistRecord_t *hist, void *out)
     rec->flags = hist->flags;
     memset(rec->reserved, 0, sizeof(rec->reserved));
 
-    /* BCDÊ±¼ä´Á×ª×Ö·û´® */
+    /* BCDæ—¶é—´æˆ³è½¬å­—ç¬¦ä¸² */
     ee_hist_ts_to_str(hist->ts_bcd, rec->timestamp);
 }

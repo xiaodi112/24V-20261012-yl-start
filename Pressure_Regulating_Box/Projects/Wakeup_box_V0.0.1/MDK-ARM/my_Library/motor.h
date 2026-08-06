@@ -4,21 +4,21 @@
 #include "gd32l23x.h"
 
 /* ============================================================
- * µç»úÇý¶¯·½Ê½Ñ¡Ôñ£¨±àÒëºê¿ª¹Ø, ·Â EEPROM_DRV_* Ð´·¨£©
- *   MOTOR_DRV_GPIO : ¸ßµÍµçÆ½Ö±Çý (PA6/PA7 GPIO Êä³ö)
- *   MOTOR_DRV_PWM  : PWM Çý¶¯ (TIMER2_CH0¡úPA6 / CH1¡úPA7, 160kHz)
- * ±ØÐëÇÒÖ»ÄÜÆôÓÃÒ»¸ö
+ * ç”µæœºé©±åŠ¨æ–¹å¼é€‰æ‹©ï¼ˆç¼–è¯‘å®å¼€å…³, ä»¿ EEPROM_DRV_* å†™æ³•ï¼‰
+ *   MOTOR_DRV_GPIO : é«˜ä½Žç”µå¹³ç›´é©± (PA6/PA7 GPIO è¾“å‡º)
+ *   MOTOR_DRV_PWM  : PWM é©±åŠ¨ (TIMER2_CH0â†’PA6 / CH1â†’PA7, 160kHz)
+ * å¿…é¡»ä¸”åªèƒ½å¯ç”¨ä¸€ä¸ª
  * ============================================================ */
 #define MOTOR_DRV_GPIO
 //#define MOTOR_DRV_PWM
 
 #if defined(MOTOR_DRV_GPIO) && defined(MOTOR_DRV_PWM)
-  #error "MOTOR: Ö»ÄÜÑ¡ÔñÒ»ÖÖÇý¶¯·½Ê½ (MOTOR_DRV_GPIO / MOTOR_DRV_PWM)"
+  #error "MOTOR: åªèƒ½é€‰æ‹©ä¸€ç§é©±åŠ¨æ–¹å¼ (MOTOR_DRV_GPIO / MOTOR_DRV_PWM)"
 #elif !defined(MOTOR_DRV_GPIO) && !defined(MOTOR_DRV_PWM)
-  #error "MOTOR: Î´Ñ¡ÔñÇý¶¯·½Ê½, ÇëÔÚ motor.h ÆôÓÃ MOTOR_DRV_GPIO »ò MOTOR_DRV_PWM"
+  #error "MOTOR: æœªé€‰æ‹©é©±åŠ¨æ–¹å¼, è¯·åœ¨ motor.h å¯ç”¨ MOTOR_DRV_GPIO æˆ– MOTOR_DRV_PWM"
 #endif
 
-#define MOTOR_PWM_FREQ_HZ   160000  /* PWM Çý¶¯ÆµÂÊ */
+#define MOTOR_PWM_FREQ_HZ   160000  /* PWM é©±åŠ¨é¢‘çŽ‡ */
 
 void pwm_init(uint32_t freq, float duty_ch0, float duty_ch1);
 void pwm_set_freq(uint32_t freq);

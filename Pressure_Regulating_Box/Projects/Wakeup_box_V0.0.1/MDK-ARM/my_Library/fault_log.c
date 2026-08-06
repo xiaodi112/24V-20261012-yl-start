@@ -1,9 +1,9 @@
 /**
  * @file    fault_log.c
- * @brief   ¹ÊÕÏÓë¸´Î»Ô­Òò¼ÇÂ¼ÊµÏÖ
+ * @brief   æ•…éšœä¸å¤ä½åŸå› è®°å½•å®ç°
  *
- * Ğ´ÈëË³Ğò: ÏÈĞ´¼ÇÂ¼, ÔÙĞ´¹ÜÀíÍ·; µôµç×î¶à¶ªÊ§ÕıÔÚĞ´ÈëµÄÒ»Ìõ, »·ĞÎ½á¹¹²»Ëğ»µ.
- * ¹ÜÀíÍ·ÎŞ¶ÀÁ¢ CRC, Í¨¹ı magic+version+·¶Î§Ğ£ÑéÊ¶±ğ; ¼ÇÂ¼´ø CRC8.
+ * å†™å…¥é¡ºåº: å…ˆå†™è®°å½•, å†å†™ç®¡ç†å¤´; æ‰ç”µæœ€å¤šä¸¢å¤±æ­£åœ¨å†™å…¥çš„ä¸€æ¡, ç¯å½¢ç»“æ„ä¸æŸå.
+ * ç®¡ç†å¤´æ— ç‹¬ç«‹ CRC, é€šè¿‡ magic+version+èŒƒå›´æ ¡éªŒè¯†åˆ«; è®°å½•å¸¦ CRC8.
  */
 
 #include "fault_log.h"
@@ -14,23 +14,23 @@
 #include "usart.h"
 #include <string.h>
 
-/* ==================== ´æ´¢²¼¾Ö ==================== */
+/* ==================== å­˜å‚¨å¸ƒå±€ ==================== */
 #define FAULT_LOG_BASE          0x0500U
 #define FAULT_LOG_HEADER_SIZE   32U
 #define FAULT_LOG_RECORD_BASE   (FAULT_LOG_BASE + FAULT_LOG_HEADER_SIZE)
 #define FAULT_LOG_RECORD_SIZE   16U
 #define FAULT_LOG_MAX_RECORDS   8U
-#define FAULT_LOG_CRC_BYTES     13U     /* ¼ÇÂ¼Ç°13×Ö½Ú²ÎÓëCRC */
+#define FAULT_LOG_CRC_BYTES     13U     /* è®°å½•å‰13å­—èŠ‚å‚ä¸CRC */
 
 #define FAULT_LOG_MAGIC         0xF10AU
 #define FAULT_LOG_VERSION       1U
 
-/* ==================== ¹ÜÀíÍ· (32B) ==================== */
+/* ==================== ç®¡ç†å¤´ (32B) ==================== */
 typedef struct {
     uint16_t magic;
     uint8_t  version;
-    uint8_t  count;         /* ÓĞĞ§¼ÇÂ¼Êı 0~8 */
-    uint8_t  head;          /* ÏÂÒ»Ğ´Èë²ÛÎ» 0~7 */
+    uint8_t  count;         /* æœ‰æ•ˆè®°å½•æ•° 0~8 */
+    uint8_t  head;          /* ä¸‹ä¸€å†™å…¥æ§½ä½ 0~7 */
     uint8_t  reserved[27];
 } FaultLogHeader_t;
 
@@ -39,7 +39,7 @@ static uint8_t  s_inited   = 0;
 static uint8_t  s_captured = 0;
 static ResetCause_t s_reset_cause = RESET_CAUSE_UNKNOWN;
 
-/* ==================== CRC8 (¶àÏîÊ½ 0x07, ³õÖµ 0x00) ==================== */
+/* ==================== CRC8 (å¤šé¡¹å¼ 0x07, åˆå€¼ 0x00) ==================== */
 static uint8_t fault_crc8(const uint8_t *data, uint16_t len)
 {
     uint8_t crc = 0x00;
@@ -60,7 +60,7 @@ static uint8_t fault_crc8(const uint8_t *data, uint16_t len)
     return crc;
 }
 
-/* ==================== ¸´Î»Ô­Òò²¶»ñ ==================== */
+/* ==================== å¤ä½åŸå› æ•è· ==================== */
 void fault_log_capture_reset_cause(void)
 {
     if(s_captured)
@@ -106,7 +106,7 @@ const char* fault_log_reset_cause_str(ResetCause_t cause)
     }
 }
 
-/* ==================== Ê±¼ä´Á (RTC ×Ö¶Î±¾ÉíÎª BCD) ==================== */
+/* ==================== æ—¶é—´æˆ³ (RTC å­—æ®µæœ¬èº«ä¸º BCD) ==================== */
 static void fault_fill_time(FaultRecord_t *rec)
 {
     rtc_parameter_struct t;
@@ -121,7 +121,7 @@ static void fault_fill_time(FaultRecord_t *rec)
     rec->second = t.second;
 }
 
-/* ==================== ¹ÜÀíÍ·¶ÁĞ´ ==================== */
+/* ==================== ç®¡ç†å¤´è¯»å†™ ==================== */
 static void header_save(void)
 {
     s_hdr.magic   = FAULT_LOG_MAGIC;
@@ -150,18 +150,18 @@ static void fault_format(void)
     header_save();
 }
 
-/* ==================== ½Ó¿ÚÊµÏÖ ==================== */
+/* ==================== æ¥å£å®ç° ==================== */
 void fault_log_init(void)
 {
     if(!s_captured)
-        fault_log_capture_reset_cause();   /* ¶µµ×: Î´ÌáÇ°²¶»ñÔò´Ë¿Ì¶ÁÈ¡ */
+        fault_log_capture_reset_cause();   /* å…œåº•: æœªæå‰æ•è·åˆ™æ­¤åˆ»è¯»å– */
 
     if(header_load() != 0)
         fault_format();
 
     s_inited = 1;
 
-    /* ¼ÇÂ¼±¾´Î¸´Î» (º¬Õı³£ÉÏµç, ±ãÓÚ×·ËİÆô¶¯ÀúÊ·) */
+    /* è®°å½•æœ¬æ¬¡å¤ä½ (å«æ­£å¸¸ä¸Šç”µ, ä¾¿äºè¿½æº¯å¯åŠ¨å†å²) */
     fault_log_add(FAULT_CODE_RESET, (uint32_t)s_reset_cause);
     printf_debug("[FL] boot reset cause=%s records=%d\r\n",
                  fault_log_reset_cause_str(s_reset_cause), fault_log_count());
@@ -181,7 +181,7 @@ uint8_t fault_log_add(FaultCode_t code, uint32_t param)
     rec.param = param;
     rec.crc8  = fault_crc8((const uint8_t *)&rec, FAULT_LOG_CRC_BYTES);
 
-    /* ÏÈĞ´¼ÇÂ¼, ÔÙ¸üĞÂ¹ÜÀíÍ· (µôµçÒ»ÖÂĞÔ) */
+    /* å…ˆå†™è®°å½•, å†æ›´æ–°ç®¡ç†å¤´ (æ‰ç”µä¸€è‡´æ€§) */
     M24M01_Write(FAULT_LOG_RECORD_BASE + (uint32_t)s_hdr.head * FAULT_LOG_RECORD_SIZE,
                  (const uint8_t *)&rec, sizeof(rec));
 
@@ -208,7 +208,7 @@ uint8_t fault_log_read(uint16_t index, FaultRecord_t *out)
     if(!s_inited || out == NULL || index >= s_hdr.count)
         return 1;
 
-    /* ×î¾ÉÔÚÇ° */
+    /* æœ€æ—§åœ¨å‰ */
     slot = (uint16_t)((s_hdr.head + FAULT_LOG_MAX_RECORDS - s_hdr.count + index) % FAULT_LOG_MAX_RECORDS);
     M24M01_Read(FAULT_LOG_RECORD_BASE + (uint32_t)slot * FAULT_LOG_RECORD_SIZE,
                 (uint8_t *)&rec, sizeof(rec));

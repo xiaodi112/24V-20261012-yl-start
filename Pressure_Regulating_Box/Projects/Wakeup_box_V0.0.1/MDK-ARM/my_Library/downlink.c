@@ -1,7 +1,7 @@
 /**
  * @file downlink.c
- * @brief MQTTÏÂ·¢Ö¸Áî´¦ÀíÄ£¿é (ÓÅ»¯°æ)
- * @details ¸ºÔğ½ÓÊÕ²¢½âÎöÆ½Ì¨ÏÂ·¢µÄMQTTÏûÏ¢, Ö´ĞĞ¶ÔÓ¦Ö¸Áî²¢ÉÏ±¨½á¹û
+ * @brief MQTTä¸‹å‘æŒ‡ä»¤å¤„ç†æ¨¡å— (ä¼˜åŒ–ç‰ˆ)
+ * @details è´Ÿè´£æ¥æ”¶å¹¶è§£æå¹³å°ä¸‹å‘çš„MQTTæ¶ˆæ¯, æ‰§è¡Œå¯¹åº”æŒ‡ä»¤å¹¶ä¸ŠæŠ¥ç»“æœ
  */
 
 #include "downlink.h"
@@ -24,12 +24,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// ==================== ¿çÄ£¿é±äÁ¿·ÃÎÊ (¶¨ÒåÔÚmain.c) ====================
+// ==================== è·¨æ¨¡å—å˜é‡è®¿é—® (å®šä¹‰åœ¨main.c) ====================
 extern uint8_t fourG_user_off;
 extern ThresholdResult_t last_realtime_alarm;
 extern uint8_t g_need_adc_sampling;
 
-// ==================== ÄÚ²¿: JSON×Ö¶ÎÌáÈ¡ ====================
+// ==================== å†…éƒ¨: JSONå­—æ®µæå– ====================
 static int extract_json_field(const char *buf, const char *field, char *out, uint16_t out_size)
 {
     char *p;
@@ -52,12 +52,12 @@ static int extract_json_field(const char *buf, const char *field, char *out, uin
     return (len > 0) ? 1 : 0;
 }
 
-// ==================== commandStr ²é±íÓ³Éä ====================
+// ==================== commandStr æŸ¥è¡¨æ˜ å°„ ====================
 typedef struct {
-    const char *cmd_str;     // commandStr Öµ
-    const char *id;          // Ó³Éäµ½ id_val
-    const char *value;       // ¹Ì¶¨Öµ, NULL ±íÊ¾Ğè´Ó raw_buf ÌáÈ¡
-    const char *extract;     // ÌáÈ¡×Ö¶ÎÃû (value Îª NULL Ê±Ê¹ÓÃ)
+    const char *cmd_str;     // commandStr å€¼
+    const char *id;          // æ˜ å°„åˆ° id_val
+    const char *value;       // å›ºå®šå€¼, NULL è¡¨ç¤ºéœ€ä» raw_buf æå–
+    const char *extract;     // æå–å­—æ®µå (value ä¸º NULL æ—¶ä½¿ç”¨)
 } CmdMap;
 
 static const CmdMap s_cmd_map[] = {
@@ -86,7 +86,7 @@ static const CmdMap s_cmd_map[] = {
     {"real_get",          "real_get",        "",      NULL},
     {"user_ip_get",       "user_ip_get",     "1",     NULL},
     {"MQTT_get",          "user_mqtt_get",   "1",     NULL},
-    // ´ø²ÎÊıÌáÈ¡µÄÃüÁî
+    // å¸¦å‚æ•°æå–çš„å‘½ä»¤
     {"collectspeed_set",  "collect_cycle",   NULL,    "collect_once\",\"value\""},
     {"report_set",        "report_cycle",    NULL,    "report_once\",\"value\""},
     {"window_set",        "window_pattern",  NULL,    "window_pattern\",\"value\""},
@@ -96,7 +96,7 @@ static const CmdMap s_cmd_map[] = {
     {"real_set",          "real_set",        NULL,    "real_enabled\",\"value\""},
     {"user_ip_set",       "user_ip_set",     NULL,    "user_ip\",\"value\""},
     {"MQTT_set",          "user_mqtt_set",   "1",     NULL},
-    // ãĞÖµ set/get
+    // é˜ˆå€¼ set/get
     {"vpthreshold_set1",  "vpthreshold",     "1",     NULL},
     {"vpthreshold_get1",  "vpthreshold",     "",      NULL},
     {"Tthreshold_set",    "Tthreshold",      "1",     NULL},
@@ -111,17 +111,17 @@ static const CmdMap s_cmd_map[] = {
     {"Tthreshold_get2",   "Tthreshold2",     "",      NULL},
     {"lcd_switch",        "lcd_switch",      NULL,    "lcd_switch\",\"value\""},
     {"sensor_count_set",  "sensor_count_set",NULL,    "sensor_count\",\"value\""},
-    // ·§ÃÅ¶¨Ê±¿ª¹Ø
+    // é˜€é—¨å®šæ—¶å¼€å…³
     {"valve_get",         "valve_status",    "1",     NULL},
     {"closeoropen_get",   "closeoropen",     "",      NULL},
     {"closeoropen_set",   "closeoropen",     "1",     NULL},
-    // ±íºÅ
+    // è¡¨å·
     {"table_get",         "table",           "",      NULL},
     {"table_set",         "table",           NULL,    "table\",\"value\""},
 };
 #define CMD_MAP_COUNT (sizeof(s_cmd_map) / sizeof(s_cmd_map[0]))
 
-// ==================== ´«¸ĞÆ÷×´Ì¬ÉÏ±¨ (¹«¹²º¯Êı, ½örtuÔÚÏß×´Ì¬) ====================
+// ==================== ä¼ æ„Ÿå™¨çŠ¶æ€ä¸ŠæŠ¥ (å…¬å…±å‡½æ•°, ä»…rtuåœ¨çº¿çŠ¶æ€) ====================
 void publish_sensor_status(void)
 {
     static char s_json[360];
@@ -148,8 +148,8 @@ void publish_sensor_status(void)
     EC801E_PublishRawJson(s_json);
 }
 
-// ==================== ÉÏ±¨»ã×Ü (ÀúÊ·Êı¾İÉÏ±¨Íê³Éºóµ÷ÓÃ) ====================
-// ºÏ²¢´«¸ĞÆ÷ÔÚÏß×´Ì¬ + ĞÅºÅ + Ñ¹Á¦ÎÂ¶È×´Ì¬ + ·§ÃÅ + IP + Òì³£¹Ø·§ + µçÑ¹
+// ==================== ä¸ŠæŠ¥æ±‡æ€» (å†å²æ•°æ®ä¸ŠæŠ¥å®Œæˆåè°ƒç”¨) ====================
+// åˆå¹¶ä¼ æ„Ÿå™¨åœ¨çº¿çŠ¶æ€ + ä¿¡å· + å‹åŠ›æ¸©åº¦çŠ¶æ€ + é˜€é—¨ + IP + å¼‚å¸¸å…³é˜€ + ç”µå‹
 void publish_upload_summary(void)
 {
     static char s_json[800];
@@ -163,12 +163,12 @@ void publish_upload_summary(void)
     JsonBuilder jb;
 	
 	
-	// 1. ´«¸ĞÆ÷ÔÚÏß×´Ì¬
+	// 1. ä¼ æ„Ÿå™¨åœ¨çº¿çŠ¶æ€
 	publish_sensor_status();
     rtc_get_time_str(s_ts, sizeof(s_ts));
     jb_begin(&jb, s_json, sizeof(s_json));
 
-    // 2. ĞÅºÅÇ¿¶È
+    // 2. ä¿¡å·å¼ºåº¦
     csq_buf[0] = '\0';
     EC801E_QueryCSQ(csq_buf, sizeof(csq_buf));
 	
@@ -182,7 +182,7 @@ void publish_upload_summary(void)
 	jb_add_str(&jb, "csq_rsrp", rsrp_buf, s_ts);
     jb_add_str(&jb, "csq_sinr", sinr_buf, s_ts);
 
-    // 4. Ñ¹Á¦+ÎÂ¶È×´Ì¬
+    // 4. å‹åŠ›+æ¸©åº¦çŠ¶æ€
     {
         PressureStatus_t ps = threshold_get_pressure_status(g_sensor.raw.pressure, g_sensor.last_pressure_collect);
         jb_add_str(&jb, "pressure_status", threshold_pressure_status_str(ps), s_ts);
@@ -200,7 +200,7 @@ void publish_upload_summary(void)
 	jb_end(&jb);
     EC801E_PublishRawJson(s_json);
 	
-		// 7. ÓÃ»§¶ËmqttÅäÖÃ
+		// 7. ç”¨æˆ·ç«¯mqtté…ç½®
 	if(!user_state)
 	{
 		user_state = 1;
@@ -223,13 +223,13 @@ void publish_upload_summary(void)
 	}
 	
 	jb_begin(&jb, s_json, sizeof(s_json));
-	 // 5. ·§ÃÅ×´Ì¬
+	 // 5. é˜€é—¨çŠ¶æ€
     {
 		const char *valve_status = valve_get_status();
         jb_add_str(&jb, "valve_control", valve_status, s_ts);
     }
 	
-    // 6. ÓÃ»§¶ËIP / Ö÷IP / ¸±IP
+    // 6. ç”¨æˆ·ç«¯IP / ä¸»IP / å‰¯IP
 	{
 		jb_add_str(&jb, "user_ip", g_user_mqtt.server, s_ts);
 		jb_add_str(&jb, "first_ip", g_mqtt.server, s_ts);
@@ -238,10 +238,10 @@ void publish_upload_summary(void)
 
 
 	
-    // 8. Òì³£×Ô¶¯¹Ø·§
+    // 8. å¼‚å¸¸è‡ªåŠ¨å…³é˜€
     jb_add_str(&jb, "abnormal_close", g_abnormal_close, s_ts);
 
-    // 9. µçÑ¹ÊıÖµ + µçÑ¹×´Ì¬
+    // 9. ç”µå‹æ•°å€¼ + ç”µå‹çŠ¶æ€
     {
         float bat_v = adc_bat_read_voltage();
         if(bat_v >= 0.0f)
@@ -262,7 +262,7 @@ void publish_upload_summary(void)
     printf_debug("[SM] upload summary:\r\n CSQ=%s V=%s\r\n", csq_buf, v_buf);
 }
 
-// ==================== Ö¸Áî·´À¡ÉÏ±¨ ====================
+// ==================== æŒ‡ä»¤åé¦ˆä¸ŠæŠ¥ ====================
 static void publish_feedback(int code)
 {
     static char fb_json[128];
@@ -273,7 +273,7 @@ static void publish_feedback(int code)
     EC801E_PublishRawJson(fb_json);
 }
 
-// ==================== ´¦Àíµ¥ÌõÏÂ·¢Ö¸Áî ====================
+// ==================== å¤„ç†å•æ¡ä¸‹å‘æŒ‡ä»¤ ====================
 static void process_downlink_cmd(const char *id_val, const char *cmd_val, const char *raw_buf)
 {
     static char json_buf[1024];
@@ -282,11 +282,11 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
 
     if(strcmp(id_val, "valve") == 0)
     {
-        // ---- ·§ÃÅ¿ØÖÆ ----
+        // ---- é˜€é—¨æ§åˆ¶ ----
         const char *result = valve_execute(cmd_val, 1);
         printf_debug("[SM] Valve result: %s\r\n", result);
 
-        // ÓÃ»§Ö÷¶¯²Ù×÷Çå³ı±¨¾¯»Ö¸´±êÖ¾, ±ÜÃâºóĞø´«¸ĞÆ÷»Ö¸´Ê±¾í»ØÓÃ»§¶¯×÷
+        // ç”¨æˆ·ä¸»åŠ¨æ“ä½œæ¸…é™¤æŠ¥è­¦æ¢å¤æ ‡å¿—, é¿å…åç»­ä¼ æ„Ÿå™¨æ¢å¤æ—¶å·å›ç”¨æˆ·åŠ¨ä½œ
         if(g_valve_alarm_closed)
         {
             g_valve_alarm_closed = 0;
@@ -306,7 +306,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "sensor_read") == 0 || strcmp(id_val, "get_pressure") == 0)
     {
-        // ---- Á¢¼´²É¼¯+ãĞÖµĞ£Ñé+Ñ¹Á¦×´Ì¬ÉÏ±¨ ----
+        // ---- ç«‹å³é‡‡é›†+é˜ˆå€¼æ ¡éªŒ+å‹åŠ›çŠ¶æ€ä¸ŠæŠ¥ ----
         PressureStatus_t ps;
         const char *ps_str;
 
@@ -318,11 +318,11 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
         printf_debug("[SM] sensor_read: P=%.2f T=%.2f V=%.2f err=%d\r\n",
                      g_sensor.raw.pressure, g_sensor.raw.temperature, g_sensor.voltage, g_sensor.raw.err);
 
-        // ´«¸ĞÆ÷×´Ì¬ÉÏ±¨ (²»ĞŞ¸ÄÏû¶¶×´Ì¬, Áô¸ø do_collect/do_realtime_check µÄ sensor_debounce_update)
+        // ä¼ æ„Ÿå™¨çŠ¶æ€ä¸ŠæŠ¥ (ä¸ä¿®æ”¹æ¶ˆæŠ–çŠ¶æ€, ç•™ç»™ do_collect/do_realtime_check çš„ sensor_debounce_update)
         if(EC801E_EnsureConnected() == EC_OK)
             publish_sensor_status();
 
-        // Ñ¹Á¦×´Ì¬ÅĞ¶Ï + ÉÏ±¨ (¸üĞÂ»ùÏß·ÀÖ¹Á¬Ğø sensor_read Í»±äÎóÅĞ)
+        // å‹åŠ›çŠ¶æ€åˆ¤æ–­ + ä¸ŠæŠ¥ (æ›´æ–°åŸºçº¿é˜²æ­¢è¿ç»­ sensor_read çªå˜è¯¯åˆ¤)
         ps = threshold_get_pressure_status(g_sensor.raw.pressure, g_sensor.last_pressure_collect);
         ps_str = threshold_pressure_status_str(ps);
         g_sensor.last_pressure_collect = g_sensor.raw.pressure;
@@ -337,7 +337,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
             EC801E_PublishRawJson(json_buf);
         }
 
-        // ÎÂ¶È×´Ì¬ÅĞ¶Ï + ÉÏ±¨
+        // æ¸©åº¦çŠ¶æ€åˆ¤æ–­ + ä¸ŠæŠ¥
 //        {
 //            TempStatus_t t_s = threshold_get_temp_status(g_sensor.raw.temperature);
 //            const char *t_str = threshold_temp_status_str(t_s);
@@ -351,7 +351,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
 //            }
 //        }
 
-        // ãĞÖµ¼ì²é + Òì³£×Ô¶¯¹Ø·§ (¸´ÓÃ¹«¹²Ä£¿é)
+        // é˜ˆå€¼æ£€æŸ¥ + å¼‚å¸¸è‡ªåŠ¨å…³é˜€ (å¤ç”¨å…¬å…±æ¨¡å—)
         {
             ThresholdResult_t tr = threshold_check(g_sensor.raw.pressure, g_sensor.raw.temperature, g_sensor.voltage, g_sensor.last_pressure_collect, g_need_adc_sampling, 0);
             if(tr != THRESHOLD_OK)
@@ -517,7 +517,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "threshold") == 0)
     {
-        // ¼æÈİ¾É°æ threshold_get1: ÒÀ´Î»Ø¸´Èı×é
+        // å…¼å®¹æ—§ç‰ˆ threshold_get1: ä¾æ¬¡å›å¤ä¸‰ç»„
         if(EC801E_EnsureConnected() == EC_OK)
         {
             rtc_get_time_str(ts_buf, sizeof(ts_buf));
@@ -624,7 +624,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "abnormal_close") == 0)
     {
-        // ---- Òì³£×Ô¶¯¹Ø·§²ßÂÔ (cmd_val·Ç¿Õ=ÉèÖÃ, ¿Õ=²éÑ¯) ----
+        // ---- å¼‚å¸¸è‡ªåŠ¨å…³é˜€ç­–ç•¥ (cmd_valéç©º=è®¾ç½®, ç©º=æŸ¥è¯¢) ----
         if(cmd_val[0] != '\0')
         {
             strncpy(g_abnormal_close, cmd_val, 15); g_abnormal_close[15] = '\0';
@@ -636,7 +636,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "valve_last_order") == 0)
     {
-        // ---- ²éÑ¯/ÉÏ±¨×îºó·§ÃÅÖ¸Áî ----
+        // ---- æŸ¥è¯¢/ä¸ŠæŠ¥æœ€åé˜€é—¨æŒ‡ä»¤ ----
         char v[4];
         snprintf(v, sizeof(v), "%d", g_valve_last_order);
         if(EC801E_EnsureConnected() == EC_OK)
@@ -806,8 +806,8 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "LY06_get") == 0)
     {
-        // ---- ±¾¶Ë·şÎñÆ÷²éÑ¯µçÑ¹±¨¾¯×´Ì¬, ÉÏ±¨ LY06 (-1=Î´Öª/0=Õı³£/1=±¨¾¯) ----
-        // ÊµÊ±¶ÁÈ¡ ADC; <0 ±íÊ¾ÎŞĞ§ ¡ú threshold_voltage_alarm ·µ»Ø -1 (Î´Öª)
+        // ---- æœ¬ç«¯æœåŠ¡å™¨æŸ¥è¯¢ç”µå‹æŠ¥è­¦çŠ¶æ€, ä¸ŠæŠ¥ LY06 (-1=æœªçŸ¥/0=æ­£å¸¸/1=æŠ¥è­¦) ----
+        // å®æ—¶è¯»å– ADC; <0 è¡¨ç¤ºæ— æ•ˆ â†’ threshold_voltage_alarm è¿”å› -1 (æœªçŸ¥)
         char val_buf[8];
         float v = adc_bat_read_voltage();
         int volt_alarm = threshold_voltage_alarm(v);
@@ -1049,7 +1049,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
             *last_dot = '\0';
             g_user_mqtt.port = (uint16_t)atoi(last_dot + 1);
             strncpy(g_user_mqtt.server, ip_buf, MQTT_FIELD_MAX - 1);
-            // topicÎª¿ÕÊ±×Ô¶¯´Óclient_idÆ´½Ó, ÒÑÓĞ×Ô¶¨ÒåtopicÔò±£Áô²»¸²¸Ç
+            // topicä¸ºç©ºæ—¶è‡ªåŠ¨ä»client_idæ‹¼æ¥, å·²æœ‰è‡ªå®šä¹‰topicåˆ™ä¿ç•™ä¸è¦†ç›–
             if(g_user_mqtt.topic_up[0] == '\0' && g_user_mqtt.client_id[0])
                 snprintf(g_user_mqtt.topic_up, MQTT_TOPIC_MAX, "/155/%s/property/post", g_user_mqtt.client_id);
             config_save_user_mqtt();
@@ -1085,7 +1085,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
             if(extract_json_field(raw_buf, "MQTT_client_id\",\"value\"", tv, sizeof(tv)))
             {
                 strncpy(g_user_mqtt.client_id, tv, MQTT_FIELD_MAX - 1);
-                // ÏÂ·¢Î´ÏÔÊ½Ö¸¶¨topicÇÒµ±Ç°topicÎª¿ÕÊ±, ×Ô¶¯´Óclient_idÆ´½Ó
+                // ä¸‹å‘æœªæ˜¾å¼æŒ‡å®štopicä¸”å½“å‰topicä¸ºç©ºæ—¶, è‡ªåŠ¨ä»client_idæ‹¼æ¥
                 if(!topic_explicit && g_user_mqtt.topic_up[0] == '\0' && g_user_mqtt.server[0])
                     snprintf(g_user_mqtt.topic_up, MQTT_TOPIC_MAX, "/155/%s/property/post", g_user_mqtt.client_id);
             }
@@ -1109,7 +1109,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "valve_status") == 0)
     {
-        // ---- ²éÑ¯·§ÃÅÊµÊ±×´Ì¬ (²»Ö´ĞĞ¶¯×÷, ½ö¶ÁÏŞÎ»¿ª¹Ø) ----
+        // ---- æŸ¥è¯¢é˜€é—¨å®æ—¶çŠ¶æ€ (ä¸æ‰§è¡ŒåŠ¨ä½œ, ä»…è¯»é™ä½å¼€å…³) ----
         const char *vs = valve_get_status();
         printf_debug("[SM] valve_get: %s\r\n", vs);
         if(EC801E_EnsureConnected() == EC_OK)
@@ -1121,10 +1121,10 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "closeoropen") == 0)
     {
-        // ---- ¶¨Ê±¿ª¹Ø·§ set/get ----
+        // ---- å®šæ—¶å¼€å…³é˜€ set/get ----
         if(cmd_val[0] != '\0')
         {
-            // closeoropen_set: ½âÎö commandParms
+            // closeoropen_set: è§£æ commandParms
             char tv[16];
             if(extract_json_field(raw_buf, "timing_switch\",\"value\"", tv, sizeof(tv)))
             { g_valve_timing.enabled = (uint8_t)atoi(tv); if(g_valve_timing.enabled > 1) g_valve_timing.enabled = 0; }
@@ -1138,7 +1138,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
             printf_debug("[SM] closeoropen_set: en=%d open=%06lu close=%06lu (flags reset)\r\n",
                          g_valve_timing.enabled, g_valve_timing.open_time, g_valve_timing.close_time);
         }
-        // ÉÏ±¨µ±Ç°ÅäÖÃ
+        // ä¸ŠæŠ¥å½“å‰é…ç½®
         if(EC801E_EnsureConnected() == EC_OK)
         {
             char v_str[12];
@@ -1158,11 +1158,11 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
     else if(strcmp(id_val, "table") == 0)
     {
-        // ---- ±íºÅ get/set ----
+        // ---- è¡¨å· get/set ----
         if(cmd_val[0] != '\0')
         {
-            // SET: Ìæ»» client_id ÖĞµÚ2¶Î(Éè±¸ID/±íºÅ)
-            // ¸ñÊ½: "<Ç°×º>&<±íºÅ>&<²úÆ·ID>&<ĞòºÅ>"
+            // SET: æ›¿æ¢ client_id ä¸­ç¬¬2æ®µ(è®¾å¤‡ID/è¡¨å·)
+            // æ ¼å¼: "<å‰ç¼€>&<è¡¨å·>&<äº§å“ID>&<åºå·>"
             char new_id[MQTT_FIELD_MAX];
             const char *src = g_mqtt.client_id;
             const char *amp1 = strchr(src, '&');
@@ -1171,8 +1171,8 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
                 const char *amp2 = strchr(amp1 + 1, '&');
                 if(amp2)
                 {
-                    // Æ´½Ó: Ç°×º²¿·Ö + & + ĞÂ±íºÅ + ºóĞø(&²úÆ·ID&ĞòºÅ)
-                    uint16_t prefix_len = (uint16_t)(amp1 - src + 1); // °üº¬µÚÒ»¸ö&
+                    // æ‹¼æ¥: å‰ç¼€éƒ¨åˆ† + & + æ–°è¡¨å· + åç»­(&äº§å“ID&åºå·)
+                    uint16_t prefix_len = (uint16_t)(amp1 - src + 1); // åŒ…å«ç¬¬ä¸€ä¸ª&
                     memcpy(new_id, src, prefix_len);
                     new_id[prefix_len] = '\0';
                     strncat(new_id, cmd_val, MQTT_FIELD_MAX - prefix_len - 1);
@@ -1186,7 +1186,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
                 }
             }
         }
-        // ÉÏ±¨µ±Ç°±íºÅ (ÌáÈ¡client_idµÚ2¶Î)
+        // ä¸ŠæŠ¥å½“å‰è¡¨å· (æå–client_idç¬¬2æ®µ)
         if(EC801E_EnsureConnected() == EC_OK)
         {
             char table_val[MQTT_FIELD_MAX] = {0};
@@ -1214,7 +1214,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
     }
 }
 
-// ==================== ÅÅ¿Õ²¢´¦Àí»º´æµÄMQTTÏÂ·¢ÏûÏ¢ ====================
+// ==================== æ’ç©ºå¹¶å¤„ç†ç¼“å­˜çš„MQTTä¸‹å‘æ¶ˆæ¯ ====================
 uint8_t drain_pending_downlink(void)
 {
     static char dl_buf[1024];
@@ -1225,9 +1225,9 @@ uint8_t drain_pending_downlink(void)
 
     while(msg_count < 5)
     {
-        // ·§ÃÅ×î¸ßÓÅÏÈ¼¶: ´¦ÀíÃ¿ÌõÏÂĞĞÇ°¼ì²é(·ÀÖ¹ÏÂĞĞÅú´¦ÀíÍÌµô·§ÃÅÊÂ¼ş)
+        // é˜€é—¨æœ€é«˜ä¼˜å…ˆçº§: å¤„ç†æ¯æ¡ä¸‹è¡Œå‰æ£€æŸ¥(é˜²æ­¢ä¸‹è¡Œæ‰¹å¤„ç†åæ‰é˜€é—¨äº‹ä»¶)
         vtiming_check(1);
-        swdt_feed();   // ÏÂĞĞÅú´¦Àí¿ÉÄÜ¶à´Î³¤AT(Ã¿ÌõQMTRECV×î¶à15s), ·ÀÖ¹SWDTÀÛ¼Æ³¬Ê±
+        swdt_feed();   // ä¸‹è¡Œæ‰¹å¤„ç†å¯èƒ½å¤šæ¬¡é•¿AT(æ¯æ¡QMTRECVæœ€å¤š15s), é˜²æ­¢SWDTç´¯è®¡è¶…æ—¶
 
         id_val[0] = '\0';
         cmd_val[0] = '\0';
@@ -1237,7 +1237,7 @@ uint8_t drain_pending_downlink(void)
 
         msg_count++;
 
-        // OTA Éı¼¶¼ì²â
+        // OTA å‡çº§æ£€æµ‹
         if(strstr(dl_buf, "downloadUrl") != NULL)
         {
             printf_debug("[SM] OTA upgrade cmd detected\r\n");
@@ -1245,14 +1245,14 @@ uint8_t drain_pending_downlink(void)
             continue;
         }
 
-        // ½âÎö commandStr (¸ñÊ½B) »ò id/value (¸ñÊ½A)
+        // è§£æ commandStr (æ ¼å¼B) æˆ– id/value (æ ¼å¼A)
         {
             char cs[64] = {0};
             extract_json_field(dl_buf, "\"commandStr\"", cs, sizeof(cs));
 
             if(cs[0] != '\0')
             {
-                // ²é±íÓ³Éä
+                // æŸ¥è¡¨æ˜ å°„
                 uint8_t found = 0;
                 for(i = 0; i < CMD_MAP_COUNT; i++)
                 {
@@ -1275,7 +1275,7 @@ uint8_t drain_pending_downlink(void)
             }
             else
             {
-                // ¸ñÊ½A: Ö±½ÓÈ¡ id / value
+                // æ ¼å¼A: ç›´æ¥å– id / value
                 extract_json_field(dl_buf, "\"id\"", id_val, sizeof(id_val));
                 extract_json_field(dl_buf, "\"value\"", cmd_val, sizeof(cmd_val));
             }

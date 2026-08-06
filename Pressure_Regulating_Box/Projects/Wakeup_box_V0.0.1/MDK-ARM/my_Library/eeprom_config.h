@@ -7,26 +7,26 @@
 
 /*
  * ============================================================
- *  EEPROM ÅäÖÃ´æ´¢ (M24M01 128KB / AT24C64 8KB, ÓÉ m24m01.h ±àÒëÑ¡Ôñ)
- *  ÅäÖÃÇø: 0x000 ~ (EE_HIST_BASE-1) (M24M01=4KB / AT24C64=2KB, µ±Ç°ÓÃµ½ 0x49A)
- *  ÀúÊ·Çø: EE_HIST_BASE ~ EEPROMÄ©Î² (ÓÉ eeprom_history Ä£¿é¹ÜÀí)
+ *  EEPROM é…ç½®å­˜å‚¨ (M24M01 128KB / AT24C64 8KB, ç”± m24m01.h ç¼–è¯‘é€‰æ‹©)
+ *  é…ç½®åŒº: 0x000 ~ (EE_HIST_BASE-1) (M24M01=4KB / AT24C64=2KB, å½“å‰ç”¨åˆ° 0x49A)
+ *  å†å²åŒº: EE_HIST_BASE ~ EEPROMæœ«å°¾ (ç”± eeprom_history æ¨¡å—ç®¡ç†)
  * ============================================================
  *
- *  ÇøÓò 1 ¡ª ¼ä¸ôÅäÖÃ (Magic 0xA5)
+ *  åŒºåŸŸ 1 â€” é—´éš”é…ç½® (Magic 0xA5)
  *    0x000: Magic
  *    0x001-0x004: collect_interval_hours (float)
  *    0x005-0x008: upload_interval_hours  (float)
  *
- *  ÇøÓò 2 ¡ª MQTT ÅäÖÃ (Magic 0x5A)
+ *  åŒºåŸŸ 2 â€” MQTT é…ç½® (Magic 0x5A)
  *    0x020: Magic
  *    0x021-0x060: ClientID (64B)
  *    0x061-0x0A0: Username (64B)
  *    0x0A1-0x0E0: Password (64B)
  *    0x0E1-0x0E2: Port (uint16)
  *    0x0E3-0x122: Server IP (64B)
- *    0x123-0x1A2: TopicÉÏ±¨ (128B)
+ *    0x123-0x1A2: Topicä¸ŠæŠ¥ (128B)
  *
- *  ÇøÓò 3 ¡ª Ñ¹Á¦ãĞÖµ vpthreshold (Magic 0xC0)
+ *  åŒºåŸŸ 3 â€” å‹åŠ›é˜ˆå€¼ vpthreshold (Magic 0xC0)
  *    0x1B0: Magic
  *    0x1B1: enabled (1B)
  *    0x1B2-0x1B5: ppmax    (float)
@@ -35,9 +35,9 @@
  *    0x1BE-0x1C1: pmin     (float)
  *    0x1C2-0x1C5: mutation (float)
  *    0x1C6-0x1C9: shock    (float)
- *    0x1CA-0x1CB: keepalive_sec (uint16, MQTTĞÄÌø)
+ *    0x1CA-0x1CB: keepalive_sec (uint16, MQTTå¿ƒè·³)
  *
- *  ÇøÓò 4 ¡ª ÎÂ¶ÈãĞÖµ Tthreshold (Magic 0xC1)
+ *  åŒºåŸŸ 4 â€” æ¸©åº¦é˜ˆå€¼ Tthreshold (Magic 0xC1)
  *    0x1D0: Magic
  *    0x1D1: enabled (1B)
  *    0x1D2-0x1D5: high  (float)
@@ -45,47 +45,47 @@
  *    0x1DA-0x1DD: vhigh (float)
  *    0x1DE-0x1E1: vlow  (float)
  *
- *  ÇøÓò 5 ¡ª µçÑ¹¼ì²â spupower (Magic 0xC2)
+ *  åŒºåŸŸ 5 â€” ç”µå‹æ£€æµ‹ spupower (Magic 0xC2)
  *    0x1F0: Magic
  *    0x1F1: enabled (1B)
  *    0x1F2-0x1F5: high    (float)
  *    0x1F6-0x1F9: low     (float)
- *    0x1FA-0x1FD: protect (float, VLP´¥·¢)
+ *    0x1FA-0x1FD: protect (float, VLPè§¦å‘)
  *
- *  ÇøÓò 6 ¡ª À©Õ¹ÅäÖÃ (Magic 0xB7)
+ *  åŒºåŸŸ 6 â€” æ‰©å±•é…ç½® (Magic 0xB7)
  *    0x200: Magic
  *    0x201-0x208: window_pattern (8B)
  *    0x209: window_end_result (1B)
  *    0x20A-0x211: window_start (8B)
  *    0x212-0x219: window_stop  (8B)
- *    0x21A: window_dottime (1B, ¼æÈİ¾Éµ¥µã)
- *    0x2E0-0x2E2: window_dottime_mask (3B, dotÄ£Ê½24µãĞ¡Ê±Î»Í¼)
+ *    0x21A: window_dottime (1B, å…¼å®¹æ—§å•ç‚¹)
+ *    0x2E0-0x2E2: window_dottime_mask (3B, dotæ¨¡å¼24ç‚¹å°æ—¶ä½å›¾)
  *    0x21B-0x21C: collect_once (uint16)
  *    0x21D: collect_type (1B)
  *    0x21E-0x21F: report_once (uint16)
  *    0x220: report_type (1B)
  *    0x221-0x230: abnormal_close (16B string)
  *    0x231: valve_last_order (1B)
- *    0x240-0x27F: Server2 ¸±IP (64B)
+ *    0x240-0x27F: Server2 å‰¯IP (64B)
  *    0x280-0x281: Port2 (uint16)
  *    0x282: real_enabled (1B)
  *    0x283: real_frequency (1B)
- *    0x284: valve_alarm_closed (1B, ±¨¾¯×Ô¶¯¹Ø·§±êÖ¾, OTA/ÖØÆôºóÈÔÄÜ»Ö¸´)
- *    0x285: valve_pre_alarm_order (1B, ¹Ø·§Ç°·§ÃÅ×´Ì¬, ÓÃÓÚ»Ö¸´)
+ *    0x284: valve_alarm_closed (1B, æŠ¥è­¦è‡ªåŠ¨å…³é˜€æ ‡å¿—, OTA/é‡å¯åä»èƒ½æ¢å¤)
+ *    0x285: valve_pre_alarm_order (1B, å…³é˜€å‰é˜€é—¨çŠ¶æ€, ç”¨äºæ¢å¤)
  *
- *  ÇøÓò 7 ¡ª ·§ÃÅ¶¯×÷ÑÓÊ± valve_delay (Magic 0xC3)
+ *  åŒºåŸŸ 7 â€” é˜€é—¨åŠ¨ä½œå»¶æ—¶ valve_delay (Magic 0xC3)
  *    0x290: Magic
  *    0x291: enabled (1B)
  *    0x292-0x293: delay_ms (uint16)
  */
 
-// ==================== EEPROM µØÖ·¶¨Òå ====================
-// ÇøÓò 1: ¼ä¸ôÅäÖÃ
+// ==================== EEPROM åœ°å€å®šä¹‰ ====================
+// åŒºåŸŸ 1: é—´éš”é…ç½®
 #define EE_ADDR_INTERVAL_MAGIC    0x000
 #define EE_ADDR_COLLECT_HOURS     0x001
 #define EE_ADDR_UPLOAD_HOURS      0x005
 
-// ÇøÓò 2: MQTT ÅäÖÃ
+// åŒºåŸŸ 2: MQTT é…ç½®
 #define EE_ADDR_MQTT_MAGIC        0x020
 #define EE_ADDR_MQTT_CLIENT_ID    0x021
 #define EE_ADDR_MQTT_USERNAME     0x061
@@ -94,7 +94,7 @@
 #define EE_ADDR_MQTT_SERVER       0x0E3
 #define EE_ADDR_MQTT_TOPIC_UP     0x123
 
-// ÇøÓò 3: Ñ¹Á¦ãĞÖµ (vpthreshold)
+// åŒºåŸŸ 3: å‹åŠ›é˜ˆå€¼ (vpthreshold)
 #define EE_ADDR_VPTH_MAGIC        0x1B0
 #define EE_ADDR_VPTH_ENABLED      0x1B1
 #define EE_ADDR_VPTH_PPMAX        0x1B2
@@ -103,9 +103,9 @@
 #define EE_ADDR_VPTH_PMIN         0x1BE
 #define EE_ADDR_VPTH_MUTATION     0x1C2
 #define EE_ADDR_VPTH_SHOCK        0x1C6
-#define EE_ADDR_KEEPALIVE_SEC     0x1CA   /* 2B uint16 MQTTĞÄÌø (ÓëÑ¹Á¦ÇøÍ¬ magic) */
+#define EE_ADDR_KEEPALIVE_SEC     0x1CA   /* 2B uint16 MQTTå¿ƒè·³ (ä¸å‹åŠ›åŒºåŒ magic) */
 
-// ÇøÓò 4: ÎÂ¶ÈãĞÖµ (Tthreshold)
+// åŒºåŸŸ 4: æ¸©åº¦é˜ˆå€¼ (Tthreshold)
 #define EE_ADDR_TTH_MAGIC         0x1D0
 #define EE_ADDR_TTH_ENABLED       0x1D1
 #define EE_ADDR_TTH_HIGH          0x1D2
@@ -113,21 +113,21 @@
 #define EE_ADDR_TTH_VHIGH         0x1DA
 #define EE_ADDR_TTH_VLOW          0x1DE
 
-// ÇøÓò 5: µçÑ¹¼ì²â (spupower)
+// åŒºåŸŸ 5: ç”µå‹æ£€æµ‹ (spupower)
 #define EE_ADDR_SPUP_MAGIC        0x1F0
 #define EE_ADDR_SPUP_ENABLED      0x1F1
 #define EE_ADDR_SPUP_HIGH         0x1F2
 #define EE_ADDR_SPUP_LOW          0x1F6
 #define EE_ADDR_SPUP_PROTECT      0x1FA
 
-// ÇøÓò 6: À©Õ¹ÅäÖÃ
+// åŒºåŸŸ 6: æ‰©å±•é…ç½®
 #define EE_ADDR_EXT_MAGIC         0x200
 #define EE_ADDR_WINDOW_PATTERN    0x201
 #define EE_ADDR_WINDOW_END_RESULT 0x209
 #define EE_ADDR_WINDOW_START_STR  0x20A
 #define EE_ADDR_WINDOW_STOP_STR   0x212
 #define EE_ADDR_WINDOW_DOTTIME    0x21A
-#define EE_ADDR_WINDOW_DOTTIME_MASK 0x2E0  /* dotÄ£Ê½24µãĞ¡Ê±Î»Í¼ (3B) */
+#define EE_ADDR_WINDOW_DOTTIME_MASK 0x2E0  /* dotæ¨¡å¼24ç‚¹å°æ—¶ä½å›¾ (3B) */
 #define EE_ADDR_COLLECT_ONCE      0x21B
 #define EE_ADDR_COLLECT_TYPE      0x21D
 #define EE_ADDR_REPORT_ONCE       0x21E
@@ -144,12 +144,12 @@
 #define EE_ADDR_SENSOR_COUNT      0x287
 #define EE_ADDR_VLP_FLAG          0x288
 
-// ÇøÓò 7: ·§ÃÅ¶¯×÷ÑÓÊ± (valve_delay)
+// åŒºåŸŸ 7: é˜€é—¨åŠ¨ä½œå»¶æ—¶ (valve_delay)
 #define EE_ADDR_VDLY_MAGIC        0x290
 #define EE_ADDR_VDLY_ENABLED      0x291
 #define EE_ADDR_VDLY_DELAY_MS     0x292
 
-// ÇøÓò 8: ³öÆø¶ËÑ¹Á¦ãĞÖµ (vpthreshold2, Magic 0xC4)
+// åŒºåŸŸ 8: å‡ºæ°”ç«¯å‹åŠ›é˜ˆå€¼ (vpthreshold2, Magic 0xC4)
 //   0x2A0: Magic
 //   0x2A1: enabled (1B)
 //   0x2A2-0x2A5: ppmax   (float)
@@ -167,7 +167,7 @@
 #define EE_ADDR_VPTH2_MUTATION    0x2B2
 #define EE_ADDR_VPTH2_SHOCK       0x2B6
 
-// ÇøÓò 9: ³öÆø¶ËÎÂ¶ÈãĞÖµ (Tthreshold2, Magic 0xC5)
+// åŒºåŸŸ 9: å‡ºæ°”ç«¯æ¸©åº¦é˜ˆå€¼ (Tthreshold2, Magic 0xC5)
 //   0x2C0: Magic
 //   0x2C1: enabled (1B)
 //   0x2C2-0x2C5: high  (float)
@@ -181,7 +181,7 @@
 #define EE_ADDR_TTH2_VHIGH        0x2CA
 #define EE_ADDR_TTH2_VLOW         0x2CE
 
-// ÇøÓò 10: ÓÃ»§¶ËMQTTÅäÖÃ (UserMqtt, Magic 0xC6)
+// åŒºåŸŸ 10: ç”¨æˆ·ç«¯MQTTé…ç½® (UserMqtt, Magic 0xC6)
 //   0x300: Magic
 //   0x301-0x340: server  (64B)
 //   0x341-0x342: port    (uint16)
@@ -197,7 +197,7 @@
 #define EE_ADDR_UMQTT_CLIENT_ID   0x3C3
 #define EE_ADDR_UMQTT_TOPIC_UP    0x403
 
-// ÇøÓò 11: ¶¨Ê±¿ª¹Ø·§ (ValveTiming, Magic 0xC7)
+// åŒºåŸŸ 11: å®šæ—¶å¼€å…³é˜€ (ValveTiming, Magic 0xC7)
 //   0x490: Magic
 //   0x491: timing_switch (uint8)
 //   0x492-0x495: open_time  (uint32, HHMMSS)
@@ -207,7 +207,7 @@
 #define EE_ADDR_VTIMING_OPEN      0x492
 #define EE_ADDR_VTIMING_CLOSE     0x496
 
-// ==================== Magic Öµ ====================
+// ==================== Magic å€¼ ====================
 #define EE_MAGIC_INTERVAL         0xA5
 #define EE_MAGIC_MQTT             0x5A
 #define EE_MAGIC_EXT              0xB7
@@ -220,36 +220,36 @@
 #define EE_MAGIC_UMQTT            0xC6
 #define EE_MAGIC_VTIMING          0xC7
 
-// ==================== Ê×´Î¿ª»úÄ¬ÈÏÖµ (ÇåÁã²ßÂÔ, ÓÃ»§ºóĞøÌî³ä) ====================
-// ËµÃ÷: °´ĞèÇóÄ¬ÈÏ switch=0 (±¨¾¯¹Ø), ãĞÖµ=0; ±¾ÈË¿ÉĞŞ¸ÄÕâĞ©ºêÌá¹©ÓÃ»§Ô¤Éè
-// ÎÂ¶ÈãĞÖµ (Tthreshold) ¡ª ½øÆø¶Ë(µÚÒ»Â·)
+// ==================== é¦–æ¬¡å¼€æœºé»˜è®¤å€¼ (æ¸…é›¶ç­–ç•¥, ç”¨æˆ·åç»­å¡«å……) ====================
+// è¯´æ˜: æŒ‰éœ€æ±‚é»˜è®¤ switch=0 (æŠ¥è­¦å…³), é˜ˆå€¼=0; æœ¬äººå¯ä¿®æ”¹è¿™äº›å®æä¾›ç”¨æˆ·é¢„è®¾
+// æ¸©åº¦é˜ˆå€¼ (Tthreshold) â€” è¿›æ°”ç«¯(ç¬¬ä¸€è·¯)
 #define DEF_TT_SWITCH        0
 #define DEF_TT_HIGH          0.0f
 #define DEF_TT_LOW           0.0f
 #define DEF_TT_VHIGH         0.0f
 #define DEF_TT_VLOW          0.0f
 
-// ÎÂ¶ÈãĞÖµ (Tthreshold2) ¡ª ³öÆø¶Ë(µÚ¶şÂ·)
+// æ¸©åº¦é˜ˆå€¼ (Tthreshold2) â€” å‡ºæ°”ç«¯(ç¬¬äºŒè·¯)
 #define DEF_TT2_SWITCH       0
 #define DEF_TT2_HIGH         0.0f
 #define DEF_TT2_LOW          0.0f
 #define DEF_TT2_VHIGH        0.0f
 #define DEF_TT2_VLOW         0.0f
 
-// ·§ÃÅ¶¯×÷ÑÓÊ± (valve_delay)
+// é˜€é—¨åŠ¨ä½œå»¶æ—¶ (valve_delay)
 #define DEF_VD_SWITCH        0
 #define DEF_VD_TIME_MS       0
-// °²È«ÉÏÏŞ: ·§ÃÅµ½Î»ºó±£³Ö PWM ×î´óÔÊĞíÊ±¼ä (ms)
-// ³¬³ö´ËÖµ»áÈÃµç»ú³¤Ê±¼ä¶Â×ª, ¿ÉÄÜËğ»µµç»ú»òºÄ¾¡µç³Ø
+// å®‰å…¨ä¸Šé™: é˜€é—¨åˆ°ä½åä¿æŒ PWM æœ€å¤§å…è®¸æ—¶é—´ (ms)
+// è¶…å‡ºæ­¤å€¼ä¼šè®©ç”µæœºé•¿æ—¶é—´å µè½¬, å¯èƒ½æŸåç”µæœºæˆ–è€—å°½ç”µæ± 
 #define VDLY_DELAY_MS_MAX    5000
 
-// µçÑ¹¼ì²â (spupower)
+// ç”µå‹æ£€æµ‹ (spupower)
 #define DEF_SP_SWITCH        1
 #define DEF_SP_HIGH          7.2f
 #define DEF_SP_LOW           3.0f
 #define DEF_SP_PROTECT       3.2f
 
-// Ñ¹Á¦ãĞÖµ (vpthreshold) ¡ª ½øÆø¶Ë(µÚÒ»Â·)
+// å‹åŠ›é˜ˆå€¼ (vpthreshold) â€” è¿›æ°”ç«¯(ç¬¬ä¸€è·¯)
 #define DEF_VP_SWITCH        0
 #define DEF_VP_PPMAX         10000.0f
 #define DEF_VP_PMAX          5000.0f
@@ -258,7 +258,7 @@
 #define DEF_VP_MUTATION      1000.0f
 #define DEF_VP_SHOCK         100.0f
 
-// Ñ¹Á¦ãĞÖµ (vpthreshold2) ¡ª ³öÆø¶Ë(µÚ¶şÂ·)
+// å‹åŠ›é˜ˆå€¼ (vpthreshold2) â€” å‡ºæ°”ç«¯(ç¬¬äºŒè·¯)
 #define DEF_VP2_SWITCH       0
 #define DEF_VP2_PPMAX        10000.0f
 #define DEF_VP2_PMAX         5000.0f
@@ -267,193 +267,193 @@
 #define DEF_VP2_MUTATION     1000.0f
 #define DEF_VP2_SHOCK        100.0f
 
-// ×Ö¶Î×î´ó³¤¶È
+// å­—æ®µæœ€å¤§é•¿åº¦
 #define MQTT_FIELD_MAX            64
 #define MQTT_TOPIC_MAX            128
 
-// ==================== ÔËĞĞÊ±ÅäÖÃ½á¹¹Ìå ====================
+// ==================== è¿è¡Œæ—¶é…ç½®ç»“æ„ä½“ ====================
 
 typedef struct {
-    float collect_interval_hours;   // ²É¼¯ÖÜÆÚ£¨Ğ¡Ê±£©
-    float upload_interval_hours;    // ÉÏ±¨ÖÜÆÚ£¨Ğ¡Ê±£©
-    uint16_t collect_interval_min;  // ×Ô¶¯¼ÆËã: ·ÖÖÓ
-    uint16_t upload_interval_min;   // ×Ô¶¯¼ÆËã: ·ÖÖÓ
-    uint16_t upload_every_n;        // ×Ô¶¯¼ÆËã: Ã¿N´Î»½ĞÑÉÏ±¨
+    float collect_interval_hours;   // é‡‡é›†å‘¨æœŸï¼ˆå°æ—¶ï¼‰
+    float upload_interval_hours;    // ä¸ŠæŠ¥å‘¨æœŸï¼ˆå°æ—¶ï¼‰
+    uint16_t collect_interval_min;  // è‡ªåŠ¨è®¡ç®—: åˆ†é’Ÿ
+    uint16_t upload_interval_min;   // è‡ªåŠ¨è®¡ç®—: åˆ†é’Ÿ
+    uint16_t upload_every_n;        // è‡ªåŠ¨è®¡ç®—: æ¯Næ¬¡å”¤é†’ä¸ŠæŠ¥
 } AppInterval_t;
 
 typedef struct {
     char client_id[MQTT_FIELD_MAX];
     char username[MQTT_FIELD_MAX];
     char password[MQTT_FIELD_MAX];
-    char server[MQTT_FIELD_MAX];        // Ö÷IP
-    char server2[MQTT_FIELD_MAX];       // ¸±IP (Îª¿ÕÔò²»ÆôÓÃ)
+    char server[MQTT_FIELD_MAX];        // ä¸»IP
+    char server2[MQTT_FIELD_MAX];       // å‰¯IP (ä¸ºç©ºåˆ™ä¸å¯ç”¨)
     char topic_up[MQTT_TOPIC_MAX];
-    uint16_t port;                      // Ö÷¶Ë¿Ú
-    uint16_t port2;                     // ¸±¶Ë¿Ú
+    uint16_t port;                      // ä¸»ç«¯å£
+    uint16_t port2;                     // å‰¯ç«¯å£
 } MqttConfig_t;
 
-// ÎÂ¶ÈãĞÖµ (Tthreshold_set/get)
+// æ¸©åº¦é˜ˆå€¼ (Tthreshold_set/get)
 typedef struct {
-    uint8_t enabled;            // 0=¹Ø±ÕÎÂ¶È±¨¾¯, 1=¿ªÆô
-    float   high;               // ÎÂ¶ÈÉÏÏŞ
-    float   low;                // ÎÂ¶ÈÏÂÏŞ
-    float   vhigh;              // ÎÂ¶È¼«¸ßÏŞ
-    float   vlow;               // ÎÂ¶È¼«µÍÏŞ
+    uint8_t enabled;            // 0=å…³é—­æ¸©åº¦æŠ¥è­¦, 1=å¼€å¯
+    float   high;               // æ¸©åº¦ä¸Šé™
+    float   low;                // æ¸©åº¦ä¸‹é™
+    float   vhigh;              // æ¸©åº¦æé«˜é™
+    float   vlow;               // æ¸©åº¦æä½é™
 } TempThresholdConfig_t;
 
-// ·§ÃÅ¶¯×÷ÑÓÊ± (delay_set/get)
+// é˜€é—¨åŠ¨ä½œå»¶æ—¶ (delay_set/get)
 typedef struct {
-    uint8_t  enabled;           // 0=²»ÑÓÊ±, 1=µ½Î»ºó±£³ÖÔ­¶¯×÷ delay_ms
-    uint16_t delay_ms;          // ±£³ÖÊ±¼ä (ms)
+    uint8_t  enabled;           // 0=ä¸å»¶æ—¶, 1=åˆ°ä½åä¿æŒåŸåŠ¨ä½œ delay_ms
+    uint16_t delay_ms;          // ä¿æŒæ—¶é—´ (ms)
 } ValveDelayConfig_t;
 
-// ¶¨Ê±¿ª¹Ø·§ (closeoropen_set/get)
+// å®šæ—¶å¼€å…³é˜€ (closeoropen_set/get)
 typedef struct {
-    uint8_t  enabled;           // timing_switch: 0=¹Ø, 1=¿ª
-    uint32_t open_time;         // ¿ª·§Ê±¼ä HHMMSS (Èç 123400)
-    uint32_t close_time;        // ¹Ø·§Ê±¼ä HHMMSS (Èç 134700)
+    uint8_t  enabled;           // timing_switch: 0=å…³, 1=å¼€
+    uint32_t open_time;         // å¼€é˜€æ—¶é—´ HHMMSS (å¦‚ 123400)
+    uint32_t close_time;        // å…³é˜€æ—¶é—´ HHMMSS (å¦‚ 134700)
 } ValveTimingConfig_t;
 
-// µçÑ¹¼ì²â (spupower_set/get)
+// ç”µå‹æ£€æµ‹ (spupower_set/get)
 typedef struct {
-    uint8_t enabled;            // 0=¹Ø±ÕµçÑ¹¼ì²â(°üÀ¨ VLP), 1=¿ªÆô
-    float   high;               // µçÑ¹ÉÏÏŞ
-    float   low;                // µçÑ¹ÏÂÏŞ
-    float   protect;            // µçÑ¹±£»¤ãĞÖµ (´¥·¢ VLP Ê¡µç)
+    uint8_t enabled;            // 0=å…³é—­ç”µå‹æ£€æµ‹(åŒ…æ‹¬ VLP), 1=å¼€å¯
+    float   high;               // ç”µå‹ä¸Šé™
+    float   low;                // ç”µå‹ä¸‹é™
+    float   protect;            // ç”µå‹ä¿æŠ¤é˜ˆå€¼ (è§¦å‘ VLP çœç”µ)
 } VoltagePowerConfig_t;
 
-// Ñ¹Á¦ãĞÖµ (vpthreshold_set1/get1)
+// å‹åŠ›é˜ˆå€¼ (vpthreshold_set1/get1)
 typedef struct {
-    uint8_t enabled;            // 0=¹Ø±ÕÑ¹Á¦±¨¾¯, 1=¿ªÆô
-    float   ppmax;              // Ñ¹Á¦¼«¸ßÏŞ
-    float   pmax;               // Ñ¹Á¦ÉÏÏŞ
-    float   ppmin;              // Ñ¹Á¦¼«µÍÏŞ
-    float   pmin;               // Ñ¹Á¦ÏÂÏŞ
-    float   mutation;           // Ñ¹Á¦Í»±äãĞÖµ (|¦¤p|, ²»ÊÜ shock Ó°Ïì)
-    float   shock;              // ¾²Ì¬ãĞÖµÖÍ»Ø´ø (½ö×÷ÓÃÓÚ pmax/pmin/ppmax/ppmin)
+    uint8_t enabled;            // 0=å…³é—­å‹åŠ›æŠ¥è­¦, 1=å¼€å¯
+    float   ppmax;              // å‹åŠ›æé«˜é™
+    float   pmax;               // å‹åŠ›ä¸Šé™
+    float   ppmin;              // å‹åŠ›æä½é™
+    float   pmin;               // å‹åŠ›ä¸‹é™
+    float   mutation;           // å‹åŠ›çªå˜é˜ˆå€¼ (|Î”p|, ä¸å— shock å½±å“)
+    float   shock;              // é™æ€é˜ˆå€¼æ»å›å¸¦ (ä»…ä½œç”¨äº pmax/pmin/ppmax/ppmin)
 } PressureThresholdConfig_t;
 
-// ÓÃ»§¶ËMQTTÅäÖÃ (µÚ¶şÁ¬½Ó, id=1)
+// ç”¨æˆ·ç«¯MQTTé…ç½® (ç¬¬äºŒè¿æ¥, id=1)
 typedef struct {
-    char server[MQTT_FIELD_MAX];        // ÓÃ»§¶Ë·şÎñÆ÷IP/ÓòÃû
-    uint16_t port;                      // ÓÃ»§¶Ë¶Ë¿Ú
-    char username[MQTT_FIELD_MAX];      // ÓÃ»§¶ËÓÃ»§Ãû
-    char password[MQTT_FIELD_MAX];      // ÓÃ»§¶ËÃÜÂë
-    char client_id[MQTT_FIELD_MAX];     // ÓÃ»§¶Ëclient_id (Í¬Ê±×÷ÎªdeviceKey)
-    char topic_up[MQTT_TOPIC_MAX];      // ÓÃ»§¶ËÉÏ±¨topic
+    char server[MQTT_FIELD_MAX];        // ç”¨æˆ·ç«¯æœåŠ¡å™¨IP/åŸŸå
+    uint16_t port;                      // ç”¨æˆ·ç«¯ç«¯å£
+    char username[MQTT_FIELD_MAX];      // ç”¨æˆ·ç«¯ç”¨æˆ·å
+    char password[MQTT_FIELD_MAX];      // ç”¨æˆ·ç«¯å¯†ç 
+    char client_id[MQTT_FIELD_MAX];     // ç”¨æˆ·ç«¯client_id (åŒæ—¶ä½œä¸ºdeviceKey)
+    char topic_up[MQTT_TOPIC_MAX];      // ç”¨æˆ·ç«¯ä¸ŠæŠ¥topic
 } UserMqttConfig_t;
 
-// È«¾ÖÔËĞĞÊ±ÅäÖÃ£¨ÆäËûÎÄ¼şÍ¨¹ıexternÒıÓÃ£©
+// å…¨å±€è¿è¡Œæ—¶é…ç½®ï¼ˆå…¶ä»–æ–‡ä»¶é€šè¿‡externå¼•ç”¨ï¼‰
 extern AppInterval_t              g_interval;
 extern MqttConfig_t               g_mqtt;
-extern UserMqttConfig_t           g_user_mqtt;            // ÓÃ»§¶ËMQTTÅäÖÃ
+extern UserMqttConfig_t           g_user_mqtt;            // ç”¨æˆ·ç«¯MQTTé…ç½®
 extern WindowConfig_t             g_window;
 extern CycleConfig_t              g_collect_cycle;
 extern CycleConfig_t              g_report_cycle;
 extern char                       g_abnormal_close[16];
 extern uint8_t                    g_valve_last_order;
-extern uint8_t                    g_valve_alarm_closed;    // ±¨¾¯×Ô¶¯¹Ø·§±êÖ¾ (EEPROM³Ö¾Ã»¯, OTAÖØÆôºó¿É»Ö¸´)
-extern uint8_t                    g_valve_pre_alarm_order; // ¹Ø·§Ç°·§ÃÅ×´Ì¬ (EEPROM³Ö¾Ã»¯)
-extern uint8_t                    g_real_enabled;         // ÊµÊ±²É¼¯¿ª¹Ø (0=¹Ø, 1=¿ª, EEPROM³Ö¾Ã»¯)
-extern uint8_t                    g_real_frequency;       // ÊµÊ±²É¼¯ÆµÂÊ (1-10Ãë)
-extern uint8_t                    g_lcd_enabled;          // LCDÏÔÊ¾¿ª¹Ø (0=¹Ø, 1=¿ª, EEPROM³Ö¾Ã»¯)
-extern uint8_t                    g_lcd_active;           // LCDµ±Ç°ÊÇ·ñÔÚÏÔÊ¾ (ÔËĞĞÌ¬, ÑÓÊ±¹Ø±ÕÓÃ)
-extern uint8_t                    g_sensor_count;         // ´«¸ĞÆ÷ÊıÁ¿ (1=µ¥Â·, 2=Ë«Â·, EEPROM³Ö¾Ã»¯)
-extern uint16_t                   g_keepalive_sec;        // MQTTĞÄÌø(Ãë)
-extern TempThresholdConfig_t      g_tthreshold;           // ½øÆø¶ËÎÂ¶ÈãĞÖµ
-extern TempThresholdConfig_t      g_tthreshold2;          // ³öÆø¶ËÎÂ¶ÈãĞÖµ
-extern ValveDelayConfig_t         g_vdelay;               // ·§ÃÅ¶¯×÷ÑÓÊ±
-extern VoltagePowerConfig_t       g_spupower;             // µçÑ¹¼ì²â
-extern PressureThresholdConfig_t  g_pthreshold;           // ½øÆø¶ËÑ¹Á¦ãĞÖµ
-extern PressureThresholdConfig_t  g_pthreshold2;          // ³öÆø¶ËÑ¹Á¦ãĞÖµ
-extern ValveTimingConfig_t        g_valve_timing;         // ¶¨Ê±¿ª¹Ø·§ÅäÖÃ
+extern uint8_t                    g_valve_alarm_closed;    // æŠ¥è­¦è‡ªåŠ¨å…³é˜€æ ‡å¿— (EEPROMæŒä¹…åŒ–, OTAé‡å¯åå¯æ¢å¤)
+extern uint8_t                    g_valve_pre_alarm_order; // å…³é˜€å‰é˜€é—¨çŠ¶æ€ (EEPROMæŒä¹…åŒ–)
+extern uint8_t                    g_real_enabled;         // å®æ—¶é‡‡é›†å¼€å…³ (0=å…³, 1=å¼€, EEPROMæŒä¹…åŒ–)
+extern uint8_t                    g_real_frequency;       // å®æ—¶é‡‡é›†é¢‘ç‡ (1-10ç§’)
+extern uint8_t                    g_lcd_enabled;          // LCDæ˜¾ç¤ºå¼€å…³ (0=å…³, 1=å¼€, EEPROMæŒä¹…åŒ–)
+extern uint8_t                    g_lcd_active;           // LCDå½“å‰æ˜¯å¦åœ¨æ˜¾ç¤º (è¿è¡Œæ€, å»¶æ—¶å…³é—­ç”¨)
+extern uint8_t                    g_sensor_count;         // ä¼ æ„Ÿå™¨æ•°é‡ (1=å•è·¯, 2=åŒè·¯, EEPROMæŒä¹…åŒ–)
+extern uint16_t                   g_keepalive_sec;        // MQTTå¿ƒè·³(ç§’)
+extern TempThresholdConfig_t      g_tthreshold;           // è¿›æ°”ç«¯æ¸©åº¦é˜ˆå€¼
+extern TempThresholdConfig_t      g_tthreshold2;          // å‡ºæ°”ç«¯æ¸©åº¦é˜ˆå€¼
+extern ValveDelayConfig_t         g_vdelay;               // é˜€é—¨åŠ¨ä½œå»¶æ—¶
+extern VoltagePowerConfig_t       g_spupower;             // ç”µå‹æ£€æµ‹
+extern PressureThresholdConfig_t  g_pthreshold;           // è¿›æ°”ç«¯å‹åŠ›é˜ˆå€¼
+extern PressureThresholdConfig_t  g_pthreshold2;          // å‡ºæ°”ç«¯å‹åŠ›é˜ˆå€¼
+extern ValveTimingConfig_t        g_valve_timing;         // å®šæ—¶å¼€å…³é˜€é…ç½®
 
-// ==================== ½Ó¿Úº¯Êı ====================
+// ==================== æ¥å£å‡½æ•° ====================
 
-// ´ÓEEPROM¼ÓÔØÅäÖÃ£¨ÉÏµçµ÷ÓÃ£©
+// ä»EEPROMåŠ è½½é…ç½®ï¼ˆä¸Šç”µè°ƒç”¨ï¼‰
 void config_load_all(void);
 
-// ±£´æ¼ä¸ôÅäÖÃµ½EEPROM
+// ä¿å­˜é—´éš”é…ç½®åˆ°EEPROM
 void config_save_interval(void);
 
-// ±£´æMQTTÅäÖÃµ½EEPROM
+// ä¿å­˜MQTTé…ç½®åˆ°EEPROM
 void config_save_mqtt(void);
 
-// ´Óclient_idÍÆµ¼topic_up
+// ä»client_idæ¨å¯¼topic_up
 void derive_topic_from_client_id(void);
 
-// ±£´æÀ©Õ¹ÅäÖÃµ½EEPROM (window/cycle/abnormal/valve_last_order)
+// ä¿å­˜æ‰©å±•é…ç½®åˆ°EEPROM (window/cycle/abnormal/valve_last_order)
 void config_save_ext(void);
 
-// ±£´æÑ¹Á¦ãĞÖµÇø (º¬ keepalive)
+// ä¿å­˜å‹åŠ›é˜ˆå€¼åŒº (å« keepalive)
 void config_save_vpthreshold(void);
 
-// ±£´æÎÂ¶ÈãĞÖµÇø
+// ä¿å­˜æ¸©åº¦é˜ˆå€¼åŒº
 void config_save_tthreshold(void);
 
-// ±£´æµçÑ¹¼ì²âÇø
+// ä¿å­˜ç”µå‹æ£€æµ‹åŒº
 void config_save_spupower(void);
 
-// ±£´æ·§ÃÅÑÓÊ±Çø
+// ä¿å­˜é˜€é—¨å»¶æ—¶åŒº
 void config_save_vdelay(void);
 
-// ±£´æ³öÆø¶ËÑ¹Á¦ãĞÖµÇø
+// ä¿å­˜å‡ºæ°”ç«¯å‹åŠ›é˜ˆå€¼åŒº
 void config_save_vpthreshold2(void);
 
-// ±£´æ³öÆø¶ËÎÂ¶ÈãĞÖµÇø
+// ä¿å­˜å‡ºæ°”ç«¯æ¸©åº¦é˜ˆå€¼åŒº
 void config_save_tthreshold2(void);
 
-// ±£´æÓÃ»§¶ËMQTTÅäÖÃ
+// ä¿å­˜ç”¨æˆ·ç«¯MQTTé…ç½®
 void config_save_user_mqtt(void);
 
-// ±£´æ¶¨Ê±¿ª¹Ø·§ÅäÖÃ
+// ä¿å­˜å®šæ—¶å¼€å…³é˜€é…ç½®
 void config_save_valve_timing(void);
 
-// »ñÈ¡ĞÄÌøÖµ(·ÀÎŞĞ§)
+// è·å–å¿ƒè·³å€¼(é˜²æ— æ•ˆ)
 uint16_t config_get_keepalive(void);
 
-// ÖÜÆÚÀàĞÍ×Ö·û´® <-> Ã¶¾Ù ×ª»»
+// å‘¨æœŸç±»å‹å­—ç¬¦ä¸² <-> æšä¸¾ è½¬æ¢
 CycleType_t cycle_type_from_str(const char *str);
 const char* cycle_type_to_str(CycleType_t type);
 
-// ½«ÖÜÆÚÅäÖÃ×ª»»ÎªÃëÊı
+// å°†å‘¨æœŸé…ç½®è½¬æ¢ä¸ºç§’æ•°
 uint32_t cycle_to_seconds(const CycleConfig_t *cfg);
 
-// Òì³£¹Ø·§×Ö·û´® <-> Ã¶¾Ù
+// å¼‚å¸¸å…³é˜€å­—ç¬¦ä¸² <-> æšä¸¾
 AbnormalClose_t abnormal_from_str(const char *str);
 const char* abnormal_to_str(AbnormalClose_t ac);
 
-// ¼ì²éãĞÖµ½á¹ûÊÇ·ñÆ¥ÅäÒì³£¹Ø·§²ßÂÔ (1=Ó¦×Ô¶¯¹Ø·§, 0=²»¹Ø)
+// æ£€æŸ¥é˜ˆå€¼ç»“æœæ˜¯å¦åŒ¹é…å¼‚å¸¸å…³é˜€ç­–ç•¥ (1=åº”è‡ªåŠ¨å…³é˜€, 0=ä¸å…³)
 int abnormal_should_close_valve(AbnormalClose_t policy, ThresholdResult_t result);
 
-// ÉÏµçÅäÖÃ¼ì²é: MQTTÎ´ÅäÖÃÊ±×èÈûµÈ´ı30Ãë, ÆäÓàÓÃÄ¬ÈÏÖµ
+// ä¸Šç”µé…ç½®æ£€æŸ¥: MQTTæœªé…ç½®æ—¶é˜»å¡ç­‰å¾…30ç§’, å…¶ä½™ç”¨é»˜è®¤å€¼
 void config_enter_setup_mode(uint8_t force_reconfig);
 
-// ´òÓ¡µ±Ç°ÅäÖÃµ½debug´®¿Ú
+// æ‰“å°å½“å‰é…ç½®åˆ°debugä¸²å£
 void config_print_current(void);
 
-// ÖØĞÂ¼ÆËã¼ä¸ôµÄ·ÖÖÓÊıºÍ»½ĞÑ´ÎÊı
+// é‡æ–°è®¡ç®—é—´éš”çš„åˆ†é’Ÿæ•°å’Œå”¤é†’æ¬¡æ•°
 void config_recalc_interval(void);
 
-// Í³Ò»ÅäÖÃÃüÁî½âÎö(ÉÏµçµÈ´ı+ÔËĞĞÊ±¸´ÓÃ)
-// ·µ»Ø: 1=ÓĞĞ§ÅäÖÃ, 0=ÎŞĞ§, -1=reset(²»»á·µ»Ø,Ö±½ÓÖØÆô)
+// ç»Ÿä¸€é…ç½®å‘½ä»¤è§£æ(ä¸Šç”µç­‰å¾…+è¿è¡Œæ—¶å¤ç”¨)
+// è¿”å›: 1=æœ‰æ•ˆé…ç½®, 0=æ— æ•ˆ, -1=reset(ä¸ä¼šè¿”å›,ç›´æ¥é‡å¯)
 int config_parse_and_apply(const char *cmd);
 
-// ·Ç×èÈû¼ì²édebug´®¿Ú(Ö÷Ñ­»·Ã¿ÂÖµ÷ÓÃ, ISRÖÃÎ»ºóÁ¢¼´ÏìÓ¦)
+// éé˜»å¡æ£€æŸ¥debugä¸²å£(ä¸»å¾ªç¯æ¯è½®è°ƒç”¨, ISRç½®ä½åç«‹å³å“åº”)
 void config_check_cmd(void);
 
-// ÅĞ¶Ïµ±Ç°RTCÊ±¼äÊÇ·ñÔÚ»î¶¯´°¿ÚÄÚ
-// ·µ»Ø: 1=»î¶¯(Ó¦ÉÏ±¨), 0=·Ç»î¶¯(½ö²É¼¯)
+// åˆ¤æ–­å½“å‰RTCæ—¶é—´æ˜¯å¦åœ¨æ´»åŠ¨çª—å£å†…
+// è¿”å›: 1=æ´»åŠ¨(åº”ä¸ŠæŠ¥), 0=éæ´»åŠ¨(ä»…é‡‡é›†)
 int config_is_active_window(void);
 
-// µÍµçÑ¹Ê¡µçÄ£Ê½±êÖ¾ (¶¨ÒåÓÚ main.c)
+// ä½ç”µå‹çœç”µæ¨¡å¼æ ‡å¿— (å®šä¹‰äº main.c)
 extern uint8_t voltage_low_power;
 
-// ÖÇÄÜ¾ö²ßµ±Ç°²É¼¯ÖÜÆÚÊÇ·ñĞèÒª²ÉÑùµç³ØµçÑ¹
-// ½öÔÚÊ×´Î¡¢Î²´Î»òµÍµçÑ¹±£»¤Ä£Ê½ÏÂ¿ªÆô£¬ÆäÓàÖĞ¼äÖÜÆÚ¹Ø±ÕÒÔÊ¡µç
+// æ™ºèƒ½å†³ç­–å½“å‰é‡‡é›†å‘¨æœŸæ˜¯å¦éœ€è¦é‡‡æ ·ç”µæ± ç”µå‹
+// ä»…åœ¨é¦–æ¬¡ã€å°¾æ¬¡æˆ–ä½ç”µå‹ä¿æŠ¤æ¨¡å¼ä¸‹å¼€å¯ï¼Œå…¶ä½™ä¸­é—´å‘¨æœŸå…³é—­ä»¥çœç”µ
 uint8_t config_need_adc_sampling(void);
 
-// ==================== dotÄ£Ê½Ê±¼äµãÎ»Í¼¸¨Öú (mask: 3×Ö½Ú24Î», bitN=µÚNĞ¡Ê±ÎªÉÏ±¨µã) ====================
+// ==================== dotæ¨¡å¼æ—¶é—´ç‚¹ä½å›¾è¾…åŠ© (mask: 3å­—èŠ‚24ä½, bitN=ç¬¬Nå°æ—¶ä¸ºä¸ŠæŠ¥ç‚¹) ====================
 void window_dottime_clear(uint8_t *mask);
 void window_dottime_set(uint8_t *mask, uint8_t hour);
 uint8_t window_dottime_hit(const uint8_t *mask, uint8_t hour);

@@ -1,80 +1,80 @@
 /**
  * @file    fault_log.h
- * @brief   ¹ÊÕÏÓë¸´Î»Ô­Òò¼ÇÂ¼ (EEPROM »·ĞÎ»º³å)
+ * @brief   æ•…éšœä¸å¤ä½åŸå› è®°å½• (EEPROM ç¯å½¢ç¼“å†²)
  *
- * ´æ´¢Çø: 0x0500 ~ 0x059F (M24M01 128KB / AT24C64 8KB Í¨ÓÃ, ÅäÖÃÇøÄÚ¿ÕÏĞ¶Î)
- *   ¹ÜÀíÍ· 32B @0x0500 : magic(2) + version(1) + count(1) + head(1) + reserved(27)
- *   ¼ÇÂ¼Çø 8Ìõ x 16B @0x0520
+ * å­˜å‚¨åŒº: 0x0500 ~ 0x059F (M24M01 128KB / AT24C64 8KB é€šç”¨, é…ç½®åŒºå†…ç©ºé—²æ®µ)
+ *   ç®¡ç†å¤´ 32B @0x0500 : magic(2) + version(1) + count(1) + head(1) + reserved(27)
+ *   è®°å½•åŒº 8æ¡ x 16B @0x0520
  *
- * µ÷ÓÃÔ¼¶¨:
- *   fault_log_capture_reset_cause()  ÉÏµç×îÔçµ÷ÓÃ (±ØĞëÔÚ rcu_all_reset_flag_clear Ö®Ç°)
- *   fault_log_init()                 RTC ¾ÍĞ÷ºóµ÷ÓÃ (Ğ´Èë±¾´Î¸´Î»¼ÇÂ¼)
- *   fault_log_add()                  ÔËĞĞÊ±¼ÇÂ¼¹ÊÕÏ
+ * è°ƒç”¨çº¦å®š:
+ *   fault_log_capture_reset_cause()  ä¸Šç”µæœ€æ—©è°ƒç”¨ (å¿…é¡»åœ¨ rcu_all_reset_flag_clear ä¹‹å‰)
+ *   fault_log_init()                 RTC å°±ç»ªåè°ƒç”¨ (å†™å…¥æœ¬æ¬¡å¤ä½è®°å½•)
+ *   fault_log_add()                  è¿è¡Œæ—¶è®°å½•æ•…éšœ
  */
 #ifndef FAULT_LOG_H
 #define FAULT_LOG_H
 
 #include <stdint.h>
 
-/* ==================== ¹ÊÕÏÂë ==================== */
+/* ==================== æ•…éšœç  ==================== */
 typedef enum {
-    FAULT_CODE_RESET            = 0x01,   /* ÉÏµç/¸´Î»¼ÇÂ¼ (reset_cause ÓĞĞ§) */
-    FAULT_CODE_RTC_NOT_COUNTING = 0x02,   /* ÉîË¯Ç° RTC ²»×ßÊ±, Ë¯Ãß±»×èÖ¹ */
-    FAULT_CODE_VALVE_TIMEOUT    = 0x03,   /* ·§ÃÅ¶¯×÷³¬Ê± (P3 Ê¹ÓÃ) */
-    FAULT_CODE_VALVE_ERR        = 0x04    /* ·§ÃÅ¹ÊÕÏ: Ë«ÏŞÎ»/»úĞµ¿¨ËÀ (P3 Ê¹ÓÃ) */
+    FAULT_CODE_RESET            = 0x01,   /* ä¸Šç”µ/å¤ä½è®°å½• (reset_cause æœ‰æ•ˆ) */
+    FAULT_CODE_RTC_NOT_COUNTING = 0x02,   /* æ·±ç¡å‰ RTC ä¸èµ°æ—¶, ç¡çœ è¢«é˜»æ­¢ */
+    FAULT_CODE_VALVE_TIMEOUT    = 0x03,   /* é˜€é—¨åŠ¨ä½œè¶…æ—¶ (P3 ä½¿ç”¨) */
+    FAULT_CODE_VALVE_ERR        = 0x04    /* é˜€é—¨æ•…éšœ: åŒé™ä½/æœºæ¢°å¡æ­» (P3 ä½¿ç”¨) */
 } FaultCode_t;
 
-/* ==================== ¸´Î»Ô­Òò ==================== */
+/* ==================== å¤ä½åŸå›  ==================== */
 typedef enum {
     RESET_CAUSE_UNKNOWN = 0,
-    RESET_CAUSE_POWER_ON,   /* ÉÏµç¸´Î» (º¬Ç·Ñ¹ BOR) */
-    RESET_CAUSE_PIN,        /* Íâ²¿¸´Î»Òı½Å */
-    RESET_CAUSE_SOFT,       /* Èí¼ş¸´Î» NVIC_SystemReset (º¬Èí¼ş¿´ÃÅ¹·´¥·¢) */
-    RESET_CAUSE_FWDGT,      /* Ó²¼ş¿´ÃÅ¹· FWDGT */
-    RESET_CAUSE_WWDGT,      /* ´°¿Ú¿´ÃÅ¹· WWDGT */
-    RESET_CAUSE_LP,         /* µÍ¹¦ºÄ¸´Î» */
-    RESET_CAUSE_V11         /* V11 ¸´Î» */
+    RESET_CAUSE_POWER_ON,   /* ä¸Šç”µå¤ä½ (å«æ¬ å‹ BOR) */
+    RESET_CAUSE_PIN,        /* å¤–éƒ¨å¤ä½å¼•è„š */
+    RESET_CAUSE_SOFT,       /* è½¯ä»¶å¤ä½ NVIC_SystemReset (å«è½¯ä»¶çœ‹é—¨ç‹—è§¦å‘) */
+    RESET_CAUSE_FWDGT,      /* ç¡¬ä»¶çœ‹é—¨ç‹— FWDGT */
+    RESET_CAUSE_WWDGT,      /* çª—å£çœ‹é—¨ç‹— WWDGT */
+    RESET_CAUSE_LP,         /* ä½åŠŸè€—å¤ä½ */
+    RESET_CAUSE_V11         /* V11 å¤ä½ */
 } ResetCause_t;
 
-/* ==================== ¹ÊÕÏ¼ÇÂ¼ (16B, Ò³¶ÔÆë) ==================== */
+/* ==================== æ•…éšœè®°å½• (16B, é¡µå¯¹é½) ==================== */
 typedef struct {
     uint8_t  code;          /* FaultCode_t */
-    uint8_t  reset_cause;   /* ResetCause_t (RESET ¼ÇÂ¼ÓĞĞ§) */
+    uint8_t  reset_cause;   /* ResetCause_t (RESET è®°å½•æœ‰æ•ˆ) */
     uint8_t  year;          /* BCD */
     uint8_t  month;         /* BCD */
     uint8_t  date;          /* BCD */
     uint8_t  hour;          /* BCD */
     uint8_t  minute;        /* BCD */
     uint8_t  second;        /* BCD */
-    uint32_t param;         /* ¸½¼Ó²ÎÊı */
-    uint8_t  crc8;          /* Ç°13×Ö½Ú CRC8 (poly 0x07) */
+    uint32_t param;         /* é™„åŠ å‚æ•° */
+    uint8_t  crc8;          /* å‰13å­—èŠ‚ CRC8 (poly 0x07) */
     uint8_t  reserved[2];
 } FaultRecord_t;            /* 16 bytes */
 
-/* ==================== ½Ó¿Ú ==================== */
+/* ==================== æ¥å£ ==================== */
 
-/* ²¶»ñ±¾´Î¸´Î»Ô­Òò (¶ÁÈ¡ RCC ¸´Î»±êÖ¾, ĞëÔÚ±êÖ¾±»Çå³ıÇ°µ÷ÓÃ) */
+/* æ•è·æœ¬æ¬¡å¤ä½åŸå›  (è¯»å– RCC å¤ä½æ ‡å¿—, é¡»åœ¨æ ‡å¿—è¢«æ¸…é™¤å‰è°ƒç”¨) */
 void fault_log_capture_reset_cause(void);
 
-/* ³õÊ¼»¯»·ĞÎÇø²¢Ğ´Èë±¾´Î¸´Î»¼ÇÂ¼ (RTC ¾ÍĞ÷ºóµ÷ÓÃ, ÃİµÈ) */
+/* åˆå§‹åŒ–ç¯å½¢åŒºå¹¶å†™å…¥æœ¬æ¬¡å¤ä½è®°å½• (RTC å°±ç»ªåè°ƒç”¨, å¹‚ç­‰) */
 void fault_log_init(void);
 
-/* ×·¼ÓÒ»Ìõ¹ÊÕÏ¼ÇÂ¼ (×Ô¶¯´øÊ±¼ä´Á), ·µ»Ø 0=³É¹¦ */
+/* è¿½åŠ ä¸€æ¡æ•…éšœè®°å½• (è‡ªåŠ¨å¸¦æ—¶é—´æˆ³), è¿”å› 0=æˆåŠŸ */
 uint8_t fault_log_add(FaultCode_t code, uint32_t param);
 
-/* µ±Ç°ÓĞĞ§¼ÇÂ¼Êı (0~8) */
+/* å½“å‰æœ‰æ•ˆè®°å½•æ•° (0~8) */
 uint16_t fault_log_count(void);
 
-/* ¶ÁÈ¡µÚ index Ìõ¼ÇÂ¼ (0=×î¾É), ·µ»Ø 0=³É¹¦ 1=Ô½½ç 2=CRC´í */
+/* è¯»å–ç¬¬ index æ¡è®°å½• (0=æœ€æ—§), è¿”å› 0=æˆåŠŸ 1=è¶Šç•Œ 2=CRCé”™ */
 uint8_t fault_log_read(uint16_t index, FaultRecord_t *out);
 
-/* Çå¿ÕÈ«²¿¹ÊÕÏ¼ÇÂ¼ */
+/* æ¸…ç©ºå…¨éƒ¨æ•…éšœè®°å½• */
 void fault_log_clear(void);
 
-/* ±¾´Î¸´Î»Ô­Òò */
+/* æœ¬æ¬¡å¤ä½åŸå›  */
 ResetCause_t fault_log_reset_cause(void);
 
-/* ¸´Î»Ô­Òò×Ö·û´® (µ÷ÊÔÊä³öÓÃ, ASCII) */
+/* å¤ä½åŸå› å­—ç¬¦ä¸² (è°ƒè¯•è¾“å‡ºç”¨, ASCII) */
 const char* fault_log_reset_cause_str(ResetCause_t cause);
 
 #endif /* FAULT_LOG_H */

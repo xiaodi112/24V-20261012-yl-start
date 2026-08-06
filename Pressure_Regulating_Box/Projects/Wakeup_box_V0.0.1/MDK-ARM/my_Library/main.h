@@ -26,10 +26,10 @@ typedef struct {
 
 extern SensorContext_t g_sensor;
 
-// ¹«¹²¹¦ÄÜº¯Êı (main.c ¶¨Òå, downlink.c µÈÄ£¿éµ÷ÓÃ)
+// å…¬å…±åŠŸèƒ½å‡½æ•° (main.c å®šä¹‰, downlink.c ç­‰æ¨¡å—è°ƒç”¨)
 void lcd_shutdown(void);
 const char* alarm_try_close_valve(ThresholdResult_t result);
-// ¶¨Ê±·§ÃÅÖÜÆÚ¼ì²é (×èÈûÁ÷³ÌÄÚµ÷ÓÃ): keep_online=1 ±£³Ö4GÔÚÏß²»¸Ä±ä»á»°
+// å®šæ—¶é˜€é—¨å‘¨æœŸæ£€æŸ¥ (é˜»å¡æµç¨‹å†…è°ƒç”¨): keep_online=1 ä¿æŒ4Gåœ¨çº¿ä¸æ”¹å˜ä¼šè¯
 void vtiming_check(uint8_t keep_online);
 
 #endif

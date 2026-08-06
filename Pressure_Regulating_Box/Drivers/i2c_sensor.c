@@ -1,11 +1,14 @@
 #include "i2c_sensor.h"
 #include "delay.h"
+#include "usart.h"
+
+/* I2C 半周期延时: 5μs → SCL 约 100kHz (标准模式上限), 由 TIMER1 标定,
+ * 不随编译优化等级变化 (原 volatile 空循环时序未标定) */
+#define IIC_HALF_PERIOD_US  5
 
 void IIC_Delay(void)
 {
-    volatile uint16_t i;
-    for(i = 0; i < 150; i++);
-//	delay_us(300);
+    delay_us(IIC_HALF_PERIOD_US);
 }
 
 void IIC_Init(void)
@@ -29,6 +32,8 @@ void IIC_Init(void)
             IIC_Delay();
             if(IIC_SDA_READ() != 0) break;
         }
+        if(IIC_SDA_READ() == 0)
+            printf_debug("[IIC] bus0 recovery failed: SDA stuck low\r\n");
     }
 
     IIC_Stop();

@@ -1,20 +1,18 @@
 #include "PT_304_35.h"
 #include "i2c_eeprom.h"
 #include "i2c_sensor.h"
+#include "mygpio.h"
 
 /************************** PD4 SW_IIC 内部辅助 **************************/
 static void pt304d_sw_iic_on(void)
 {
-    rcu_periph_clock_enable(RCU_GPIOD);
-    gpio_mode_set(PT304D_SW_IIC_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, PT304D_SW_IIC_PIN);
-    gpio_output_options_set(PT304D_SW_IIC_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, PT304D_SW_IIC_PIN);
-    gpio_bit_set(PT304D_SW_IIC_PORT, PT304D_SW_IIC_PIN);
+    gpio_set_i2c_power(1);
     trea_delay_ms(PT304D_PWRUP_DELAY_MS);
 }
 
 static void pt304d_sw_iic_off(void)
 {
-    gpio_bit_reset(PT304D_SW_IIC_PORT, PT304D_SW_IIC_PIN);
+    gpio_set_i2c_power(0);
 }
 
 /************************** 量程辅助: 根据 sensor_idx 返回满量程 (Pa) **************************/
@@ -346,7 +344,6 @@ PT304D_Status PT304D_SetI2CAddr(uint8_t sensor_idx, uint8_t new_7bit_addr)
     }
     return PT304D_OK;
 }
-
 
 
 

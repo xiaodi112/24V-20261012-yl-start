@@ -2,6 +2,7 @@
 #include "i2c_sensor.h"
 #include "delay.h"
 #include "usart.h"
+#include "mygpio.h"
 #include "gd32l23x.h"
 #include <string.h>
 
@@ -14,24 +15,20 @@ static uint8_t s_pwr_init_done = 0;
 
 static inline void m24m01_pwr_on(void)
 {
-    rcu_periph_clock_enable(RCU_GPIOD);
-    gpio_mode_set(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_4);
-    gpio_output_options_set(GPIOD, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_4);
-
     if(!s_pwr_init_done) {
         s_pwr_init_done = 1;
-        gpio_bit_reset(GPIOD, GPIO_PIN_4);
+        gpio_set_i2c_power(0);
         trea_delay_ms(50);
     }
 
-    gpio_bit_set(GPIOD, GPIO_PIN_4);
+    gpio_set_i2c_power(1);
     trea_delay_ms(20);   // EEPROM 上电稳定 (手册典型 1ms, 留余量)
     IIC_Init();          // 重新配置 PC0/PC1 GPIO + 总线死锁恢复 (与传感器共用总线)
 }
 
 static inline void m24m01_pwr_off(void)
 {
-    gpio_bit_reset(GPIOD, GPIO_PIN_4);
+    gpio_set_i2c_power(0);
 }
 
 /*
@@ -97,7 +94,7 @@ uint8_t M24M01_WriteByte(uint32_t addr, uint8_t data)
 
     IIC_Stop();
 
-    ret = M24M01_WaitReady(addr, M24M01_WRITE_TIME + 1);
+    ret = M24M01_WaitReady(addr, M24M01_WRITE_TIME * 2 + 1);
     m24m01_pwr_off();
     return ret;
 }
@@ -135,7 +132,7 @@ uint8_t M24M01_WritePage(uint32_t addr, const uint8_t *data, uint16_t len)
 
     IIC_Stop();
 
-    ret = M24M01_WaitReady(addr, M24M01_WRITE_TIME + 1);
+    ret = M24M01_WaitReady(addr, M24M01_WRITE_TIME * 2 + 1);
     m24m01_pwr_off();
     return ret;
 }

@@ -2,6 +2,7 @@
 #include "gd32l23x.h"
 #include "delay.h"
 #include "board.h"
+#include "usart.h"
 
 /* 位操作IIC连接的GPIO引脚 (定义见 board.h, 传感器2 总线) */
 #define GPIO_PORT_IIC     BOARD_I2C1_SCL_PORT
@@ -32,11 +33,12 @@
 #define IIC_WR    0   /* 写操作 */
 #define IIC_RD    1   /* 读操作 */
 
+/* I2C 半周期延时: 与 bus0 一致, 5μs (标准模式), 由 TIMER1 标定 */
+#define IIC_HALF_PERIOD1_US  5
+
 static void IIC_Delay1(void)
 {
-	volatile uint8_t i;
-    for(i = 0; i < 150; i++);
-//   trea_delay_ms(3);
+    delay_us(IIC_HALF_PERIOD1_US);
 }
 
 void IIC_Start1(void)
@@ -135,7 +137,7 @@ uint8_t IIC_Wait_Ack1(uint16_t timeout)
 
     if(IIC_SDA_READ() != 0)
     {
-		IIC_SCL_1();
+		IIC_SCL_0();   /* 与 bus0 一致: NACK 后 SCL 拉低, 避免总线悬在高电平 */
         return  1;
     }
 
@@ -186,6 +188,8 @@ void IIC_GPIO_Init1(void)
             IIC_Delay1();
             if(IIC_SDA_READ() != 0) break;
         }
+        if(IIC_SDA_READ() == 0)
+            printf_debug("[IIC] bus1 recovery failed: SDA stuck low\r\n");
     }
 
     IIC_Stop1();

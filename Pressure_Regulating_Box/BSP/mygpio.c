@@ -29,6 +29,10 @@ void gpio_set_ble_power(uint8_t on)
 // I2C 电子开关: PD4 HIGH=上电
 void gpio_set_i2c_power(uint8_t on)
 {
+    /* 每次调用重新配置输出模式: 深睡唤醒后 PD4 可能被置为 Analog */
+    rcu_periph_clock_enable(RCU_GPIOD);
+    gpio_mode_set(BOARD_I2C_PWR_SW_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BOARD_I2C_PWR_SW_PIN);
+    gpio_output_options_set(BOARD_I2C_PWR_SW_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, BOARD_I2C_PWR_SW_PIN);
     if(on)
         gpio_bit_set(BOARD_I2C_PWR_SW_PORT, BOARD_I2C_PWR_SW_PIN);
     else

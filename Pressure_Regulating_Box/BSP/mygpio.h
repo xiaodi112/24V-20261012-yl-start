@@ -9,7 +9,7 @@ void gpio_init(void);
 void gpio_set_4g_power(uint8_t on);        // PB5: 1=上电
 uint8_t gpio_get_4g_power(void);           // 返回 1=上电
 void gpio_set_ble_power(uint8_t on);       // PC12: 1=上电
-void gpio_set_i2c_power(uint8_t on);       // PD4: 1=上电
+void gpio_set_i2c_power(uint8_t on);       // PD4: 1=上电 (内部自动重配输出模式, 兼容深睡唤醒后 Analog 状态)
 void gpio_debug_uart_pins_low(void);       // 深睡前调试串口引脚拉低
 
 // ===================== PD0(Btn1) 按键唤醒 =====================

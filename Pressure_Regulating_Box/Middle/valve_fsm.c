@@ -3,7 +3,9 @@
  * @brief   阀门动作非阻塞状态机实现
  *
  * 堵转保护说明: 当前硬件仅有双限位开关, 无电流检测;
- * 保护由三层构成: 动作前双限位预检 / 移动中双限位与反向限位即时故障 / 移动超时.
+ * 保护由三层构成: 动作前双限位预检 / 移动中双限位与反向限位故障(边沿+去抖150ms) / 移动超时(20s).
+ * 反向限位检测: 启动时处于激活的限位是"离开位", 检测暂不武装, 释放后重新武装,
+ * 避免从对端启动时误判; 目标到位同样需要连续有效 150ms 防抖动提前成功.
  * 若未来增加电流采样或驱动芯片 FAULT 引脚, 在 poll() 中追加判定即可.
  */
 
@@ -19,6 +21,7 @@
 
 /* ==================== 时间预算 ==================== */
 #define VALVE_MOVE_TIMEOUT_MS   20000U   /* 单程移动超时 (与旧实现一致) */
+#define VALVE_LIMIT_DEBOUNCE_MS 150U     /* 限位去抖窗口: 目标到位/反向故障需连续有效这么久 */
 
 /* ==================== EEPROM 动作日志 (失电恢复) ==================== */
 #define VALVE_JOURNAL_BASE      0x05A0U
@@ -38,6 +41,13 @@ typedef struct {
     uint8_t  persist;
     uint32_t move_start_ms;     /* 移动起始时刻 */
     uint32_t hold_deadline_ms;  /* 压紧结束时刻 */
+    uint8_t  target_was_active_at_start;  /* 启动时目标限位已激活 (直接完成, 无需去抖) */
+    uint8_t  wrong_was_active_at_start;   /* 启动时反向限位已激活 (离开位, 检测暂不武装) */
+    uint8_t  wrong_armed;                 /* 反向限位检测是否武装 (释放后重新武装) */
+    uint32_t target_since_ms;             /* 目标限位连续有效起始时刻 (0=未跟踪) */
+    uint32_t wrong_since_ms;              /* 反向限位连续有效起始时刻 (0=未跟踪) */
+    uint8_t  target_tracking;             /* 目标限位去抖是否在跟踪 (与时间值解耦的哨兵) */
+    uint8_t  wrong_tracking;              /* 反向限位去抖是否在跟踪 */
     ValveFsmResult_t result;
     uint8_t  result_pending;
     ValveReportOrigin_t report_origin;
@@ -186,9 +196,11 @@ uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t p
         bsp_motor_enable(0);
     }
 
-    /* 动作前限位预检: 双限位同时触发 = 机械故障, 不使能电机 */
-    target = limit_target();
-    wrong  = limit_wrong();
+    /* 动作前限位预检: 双限位同时触发 = 机械故障, 不使能电机
+     * 注意: 必须用本次动作方向 (is_open) 读取限位, 不能用 s_vfsm.is_open,
+     * 后者可能是上一轮动作的方向或 init 后的初始值, 会导致目标/反向限位互换 */
+    target = is_open ? bsp_motor_limit_open()  : bsp_motor_limit_close();
+    wrong  = is_open ? bsp_motor_limit_close() : bsp_motor_limit_open();
     if(target && wrong)
     {
         printf_debug("[VALVE] both limits active, abort without energizing\r\n");
@@ -206,6 +218,14 @@ uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t p
     s_vfsm.persist  = update_last_order;
     s_vfsm.state    = is_open ? VALVE_FSM_OPENING : VALVE_FSM_CLOSING;
     s_vfsm.move_start_ms = trea_millis();
+    /* 记录启动时的限位状态: 目标已在位则直接完成; 反向在位是离开位, 检测暂不武装 */
+    s_vfsm.target_was_active_at_start = target;
+    s_vfsm.wrong_was_active_at_start  = wrong;
+    s_vfsm.wrong_armed                = (uint8_t)(wrong ? 0 : 1);
+    s_vfsm.target_since_ms = 0;
+    s_vfsm.wrong_since_ms  = 0;
+    s_vfsm.target_tracking = 0;
+    s_vfsm.wrong_tracking  = 0;
 
     bsp_motor_enable(1);
     if(is_open)
@@ -240,27 +260,76 @@ void valve_fsm_poll(void)
             /* 目标到位 */
             if(target)
             {
-                bsp_motor_drive_stop();
-                /* 压紧阶段: 保持使能, 带独立超时 */
-                if(g_vdelay.enabled && g_vdelay.delay_ms > 0)
+                uint8_t target_ok = 0;
+
+                if(s_vfsm.target_was_active_at_start)
                 {
-                    uint32_t hold_ms = (g_vdelay.delay_ms > VDLY_DELAY_MS_MAX)
-                                     ? VDLY_DELAY_MS_MAX : g_vdelay.delay_ms;
-                    s_vfsm.state = VALVE_FSM_HOLDING;
-                    s_vfsm.hold_deadline_ms = now + hold_ms;
-                    printf_debug("[VALVE] limit reached, hold %lums\r\n", (unsigned long)hold_ms);
+                    /* 启动时已在目标位: 无需去抖, 直接完成 */
+                    target_ok = 1;
                 }
                 else
                 {
-                    vfsm_complete(s_vfsm.is_open ? VALVE_FSM_RESULT_ON : VALVE_FSM_RESULT_OFF);
+                    /* 移动中到位: 需连续有效 >= 去抖窗口, 防限位抖动提前成功 */
+                    if(!s_vfsm.target_tracking)
+                    {
+                        s_vfsm.target_tracking  = 1;
+                        s_vfsm.target_since_ms = now;
+                    }
+                    else if((now - s_vfsm.target_since_ms) >= VALVE_LIMIT_DEBOUNCE_MS)
+                        target_ok = 1;
                 }
-                break;
+
+                if(target_ok)
+                {
+                    bsp_motor_drive_stop();
+                    /* 压紧阶段: 保持使能, 带独立超时 */
+                    if(g_vdelay.enabled && g_vdelay.delay_ms > 0)
+                    {
+                        uint32_t hold_ms = (g_vdelay.delay_ms > VDLY_DELAY_MS_MAX)
+                                         ? VDLY_DELAY_MS_MAX : g_vdelay.delay_ms;
+                        s_vfsm.state = VALVE_FSM_HOLDING;
+                        s_vfsm.hold_deadline_ms = now + hold_ms;
+                        printf_debug("[VALVE] limit reached, hold %lums\r\n", (unsigned long)hold_ms);
+                    }
+                    else
+                    {
+                        vfsm_complete(s_vfsm.is_open ? VALVE_FSM_RESULT_ON : VALVE_FSM_RESULT_OFF);
+                    }
+                    break;
+                }
             }
-            /* 反向限位触发 (目标未到位): 机械卡死/方向错误 */
+            else
+            {
+                s_vfsm.target_tracking = 0;
+                s_vfsm.target_since_ms = 0;   /* 目标限位释放, 重置去抖计时 */
+            }
+
+            /* 反向限位 (目标未到位): 边沿 + 去抖判机械卡死/方向错误
+             * - 启动时就处于激活(离开位): 忽略, 等它自然释放后重新武装
+             * - 新激活需连续 >= 去抖窗口才判故障, 防瞬时抖动误停 */
             if(wrong)
             {
-                vfsm_fault(VALVE_FSM_RESULT_ERR, FAULT_CODE_VALVE_ERR);
-                break;
+                if(!s_vfsm.wrong_armed)
+                {
+                    s_vfsm.wrong_tracking = 0;
+                    s_vfsm.wrong_since_ms = 0;   /* 离开位仍激活, 忽略 */
+                }
+                else if(!s_vfsm.wrong_tracking)
+                {
+                    s_vfsm.wrong_tracking = 1;
+                    s_vfsm.wrong_since_ms = now;
+                }
+                else if((now - s_vfsm.wrong_since_ms) >= VALVE_LIMIT_DEBOUNCE_MS)
+                {
+                    vfsm_fault(VALVE_FSM_RESULT_ERR, FAULT_CODE_VALVE_ERR);
+                    break;
+                }
+            }
+            else
+            {
+                s_vfsm.wrong_tracking = 0;
+                s_vfsm.wrong_since_ms = 0;
+                s_vfsm.wrong_armed    = 1;   /* 反向限位已释放 → 检测武装 */
             }
             /* 移动超时 (无限位变化, 等价堵转判定) */
             if((now - s_vfsm.move_start_ms) >= VALVE_MOVE_TIMEOUT_MS)

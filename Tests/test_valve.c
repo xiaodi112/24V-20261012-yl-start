@@ -62,8 +62,8 @@ static void test_motor_enabled_status(void)
 
     /* 动作正常: 开阀到位 → valve_on */
     reset();
+    test_limit_open = 1;               /* 已在开阀位: 启动即完成 */
     CHECK(valve_fsm_start("open", 1, 0) == 1);
-    test_limit_open = 1;
     valve_fsm_poll();
     CHECK(strcmp(valve_result_str(valve_fsm_result()), "valve_on") == 0);
 }

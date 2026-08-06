@@ -41,6 +41,9 @@ static void test_normal_open(void)
     test_millis_now += 1000;
     test_limit_open = 1;
     valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);          /* 去抖窗口内未完成 */
+    test_millis_now += 160;                /* >= 150ms 去抖窗口 */
+    valve_fsm_poll();
 
     CHECK(valve_fsm_result_pending() == 1);
     CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ON);
@@ -89,6 +92,9 @@ static void test_wrong_limit_fault(void)
     test_millis_now += 500;
     test_limit_close = 1;   /* 开阀方向却触发关阀限位 */
     valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);          /* 去抖窗口内未故障 */
+    test_millis_now += 160;                /* 持续 >= 150ms → 故障 */
+    valve_fsm_poll();
 
     CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ERR);
     CHECK(valve_fsm_busy() == 0);
@@ -106,6 +112,8 @@ static void test_hold_phase(void)
     CHECK(valve_fsm_start("open", 1, 0) == 1);
     test_millis_now += 1000;
     test_limit_open = 1;
+    valve_fsm_poll();
+    test_millis_now += 160;                /* 目标限位连续 >= 150ms */
     valve_fsm_poll();
 
     CHECK(valve_fsm_busy() == 1);          /* 压紧中 */
@@ -184,9 +192,120 @@ static void test_report_origin(void)
     CHECK(valve_fsm_start("open", 0, 0) == 1);
     test_limit_open = 1;
     valve_fsm_poll();
+    test_millis_now += 160;                /* 目标限位连续 >= 150ms */
+    valve_fsm_poll();
     CHECK(valve_fsm_result_pending() == 1);
     CHECK(valve_fsm_take_report() == VALVE_REPORT_ALARM);
     CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ON);
+}
+
+/* 从对端启动: 反向限位在位不应立即误停 (关阀位 → 开阀) */
+static void test_start_from_opposite(void)
+{
+    RESET_VALVE();
+    test_limit_close = 1;              /* 当前在关阀位 */
+    CHECK(valve_fsm_start("open", 1, 0) == 1);
+    CHECK(valve_fsm_busy() == 1);
+
+    /* 移动初期离开位反向限位仍激活: 不故障不停机 */
+    test_millis_now += 100;
+    valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);
+    CHECK(test_motor_enable == 1);
+    CHECK(test_drive == 1);
+    CHECK(valve_fsm_result_pending() == 0);
+
+    /* 离开原位, 继续移动 */
+    test_limit_close = 0;
+    test_millis_now += 1000;
+    valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);
+
+    /* 到位: 目标限位连续 >= 150ms */
+    test_limit_open = 1;
+    valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);
+    test_millis_now += 160;
+    valve_fsm_poll();
+    CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ON);
+    CHECK(valve_fsm_busy() == 0);
+}
+
+/* 目标限位瞬时抖动: 不应提前成功 */
+static void test_target_debounce(void)
+{
+    RESET_VALVE();
+    CHECK(valve_fsm_start("open", 1, 0) == 1);
+    test_millis_now += 500;
+
+    test_limit_open = 1;               /* 瞬时抖动 */
+    valve_fsm_poll();
+    test_millis_now += 50;
+    test_limit_open = 0;
+    valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);
+    CHECK(valve_fsm_result_pending() == 0);
+
+    /* 真正到位 */
+    test_limit_open = 1;
+    valve_fsm_poll();
+    test_millis_now += 160;
+    valve_fsm_poll();
+    CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ON);
+}
+
+/* 反向限位瞬时抖动: 去抖窗口内恢复不故障 */
+static void test_wrong_debounce(void)
+{
+    RESET_VALVE();
+    CHECK(valve_fsm_start("open", 1, 0) == 1);
+    test_millis_now += 500;
+
+    test_limit_close = 1;              /* 反向瞬时抖动 */
+    valve_fsm_poll();
+    test_millis_now += 100;            /* < 150ms */
+    test_limit_close = 0;
+    valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);
+    CHECK(valve_fsm_result_pending() == 0);
+
+    /* 持续反向激活 >= 150ms → 故障 */
+    test_limit_close = 1;
+    valve_fsm_poll();
+    test_millis_now += 160;
+    valve_fsm_poll();
+    CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ERR);
+}
+
+/* 离开位反向限位释放后再激活 → 检测重新武装, 判故障 */
+static void test_wrong_rearm(void)
+{
+    RESET_VALVE();
+    test_limit_close = 1;              /* 从关阀位开阀 */
+    CHECK(valve_fsm_start("open", 1, 0) == 1);
+    test_millis_now += 500;
+    test_limit_close = 0;              /* 离开原位 */
+    valve_fsm_poll();
+    CHECK(valve_fsm_busy() == 1);
+
+    /* 反向限位重新激活并持续 → 故障 */
+    test_limit_close = 1;
+    valve_fsm_poll();
+    test_millis_now += 160;
+    valve_fsm_poll();
+    CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ERR);
+}
+
+/* 启动时已在目标位: 直接完成 (无需去抖) */
+static void test_already_at_target(void)
+{
+    RESET_VALVE();
+    test_limit_open = 1;
+    CHECK(valve_fsm_start("open", 1, 0) == 1);
+    valve_fsm_poll();
+    CHECK(valve_fsm_result() == VALVE_FSM_RESULT_ON);
+    CHECK(valve_fsm_busy() == 0);
+    CHECK(test_motor_enable == 0);
 }
 
 void test_valve_fsm_all(void)
@@ -201,4 +320,9 @@ void test_valve_fsm_all(void)
     test_power_loss_recovery();
     test_invalid_and_disabled();
     test_report_origin();
+    test_start_from_opposite();
+    test_target_debounce();
+    test_wrong_debounce();
+    test_wrong_rearm();
+    test_already_at_target();
 }

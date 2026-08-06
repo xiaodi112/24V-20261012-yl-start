@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>GD32L233</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\GD32L23x_Firmware_Library\CMSIS\GD\GD32L23x\Include;..\..\..\GD32L23x_Firmware_Library\GD32L23x_standard_peripheral\Include;..\..\Projects\07_LPUART_Deepsleep_Wakeup\MDK-ARM\my_Library;.;..\..\Projects\Wakeup_box_V0.0.1\MDK-ARM\my_Library</IncludePath>
+              <IncludePath>..\..\..\GD32L23x_Firmware_Library\CMSIS\GD\GD32L23x\Include;..\..\..\GD32L23x_Firmware_Library\GD32L23x_standard_peripheral\Include;..\..\Projects\07_LPUART_Deepsleep_Wakeup\MDK-ARM\my_Library;.;..\..\Middle</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>

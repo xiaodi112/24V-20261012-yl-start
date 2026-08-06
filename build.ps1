@@ -12,6 +12,10 @@ $uv4  = "D:/keil/core/UV4/UV4.exe"
 
 if(-not (Test-Path $uv4)) { throw "UV4 not found: $uv4" }
 
+if(Test-Path $log) {
+    Remove-Item $log -Force   # 先删旧日志, 避免轮询误匹配上一次构建的完成标记
+}
+
 if(Test-Path $obj) {
     Get-ChildItem $obj -File | Remove-Item -Force
 }

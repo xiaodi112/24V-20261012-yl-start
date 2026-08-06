@@ -15,7 +15,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "main.h"
+#include "sensor_ctx.h"
 #include "ota_app.h"
 #include "threshold.h"
 

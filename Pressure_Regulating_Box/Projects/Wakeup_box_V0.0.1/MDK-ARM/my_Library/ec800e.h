@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "gd32l23x.h"
+#include "board.h"
 #include "PT_304_35.h"
 #include "sensor_buffer.h"
 #include "threshold.h"
@@ -15,9 +16,9 @@ typedef enum {
     EC_TIMEOUT
 } EC_Status_t;
 
-// ==================== 硬件引脚 ====================
-#define EC_PWRKEY_PORT       GPIOB
-#define EC_PWRKEY_PIN        GPIO_PIN_5
+// ==================== 硬件引脚 (见 board.h) ====================
+#define EC_PWRKEY_PORT       BOARD_4G_V4G_EN_PORT
+#define EC_PWRKEY_PIN        BOARD_4G_V4G_EN_PIN
 
 // ==================== 接口函数 ====================
 

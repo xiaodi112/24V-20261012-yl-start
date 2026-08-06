@@ -5,6 +5,13 @@
 
 void gpio_init(void);
 
+// ===================== 板级输出控制 (引脚见 board.h) =====================
+void gpio_set_4g_power(uint8_t on);        // PB5: 1=上电
+uint8_t gpio_get_4g_power(void);           // 返回 1=上电
+void gpio_set_ble_power(uint8_t on);       // PC12: 1=上电
+void gpio_set_i2c_power(uint8_t on);       // PD4: 1=上电
+void gpio_debug_uart_pins_low(void);       // 深睡前调试串口引脚拉低
+
 // ===================== PD0(Btn1) 按键唤醒 =====================
 // 按键接地(按下=LOW), 内部上拉, EXTI0下降沿唤醒
 extern volatile uint8_t button_wakeup_flag;

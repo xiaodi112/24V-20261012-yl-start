@@ -46,6 +46,7 @@
 #include "json_builder.h"
 #include "eeprom_history.h"
 #include "fault_log.h"
+#include "bsp_motor.h"
 
 // ==================== 状态定??====================
 typedef enum {
@@ -118,18 +119,7 @@ void lcd_shutdown(void)
     slcd_disable();
 
     // 将SLCD全部COM/SEG引脚设为模拟输入, 与无LCD产品状态完全一??
-    rcu_periph_clock_enable(RCU_GPIOA);
-    rcu_periph_clock_enable(RCU_GPIOB);
-    rcu_periph_clock_enable(RCU_GPIOC);
-    gpio_mode_set(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE,
-                  GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10);                   /* COM0-2 */
-    gpio_mode_set(GPIOB, GPIO_MODE_ANALOG, GPIO_PUPD_NONE,
-                  GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_9 |                    /* SEG5,6 + COM3 */
-                  GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12 |                 /* SEG10-12 */
-                  GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);                 /* SEG13-15 */
-    gpio_mode_set(GPIOC, GPIO_MODE_ANALOG, GPIO_PUPD_NONE,
-                  GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 |                    /* SEG24-26 */
-                  GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11);                  /* SEG27-29 */
+    slcd_pins_to_analog();
 
     g_lcd_active = 0;
 }
@@ -262,9 +252,9 @@ static void sys_init(void)
     if(!voltage_low_power && !fourG_user_off && !fourG_init_failed && !fourG_weak_signal &&
        strcmp(g_window.pattern, "long") == 0 &&
        (config_is_active_window() || g_window.end_result == 1))
-        gpio_bit_set(GPIOB, GPIO_PIN_5);
+        gpio_set_4g_power(1);
 
-    motor_init();
+    bsp_motor_init();
     IIC_Init();
 	IIC_GPIO_Init1();
     adc_bat_init();
@@ -323,7 +313,7 @@ static void lcd_update_csq(void)
 // 返回: 1=连接成功, 0=失败; *p_was_online: 调用前4G是否在线(用于fourG_restore)
 static int fourG_ensure_ready(int *p_was_online)
 {
-    int was_online = (gpio_input_bit_get(GPIOB, GPIO_PIN_5) == SET);
+    int was_online = gpio_get_4g_power();
     *p_was_online = was_online;
 
     com_lpuart_init();
@@ -485,7 +475,7 @@ const char* alarm_try_close_valve(ThresholdResult_t result)
         printf_debug("[SM] Auto-close valve (policy=%s, result=%d, pre=%d)\r\n",
                      g_abnormal_close, result, g_valve_pre_alarm_order);
         IIC_Init();
-        motor_init();
+        bsp_motor_init();
         const char *vr = valve_execute("close", 0);
         g_valve_alarm_closed = 1;
         config_save_ext();
@@ -550,7 +540,7 @@ static void vtiming_execute_and_report(const char *action, uint8_t keep_online)
 {
     ensure_full_init();
     IIC_Init();
-    motor_init();
+    bsp_motor_init();
     const char *vr = valve_execute(action, 1);
     printf_debug("[SM] VTIMING: %s result=%s\r\n", action, vr);
 
@@ -627,7 +617,7 @@ static void realtime_enter_sleep(void)
     if(!sleep_gate_rtc_ok())
         return;   // RTC 不走时禁止深睡, 降级为活跃采集
 
-    gpio_bit_reset(GPIOD, GPIO_PIN_4);
+    gpio_set_i2c_power(0);
     rtc_alarm_wakeup_init();
     rtc_set_next_alarm_sec(g_real_frequency);
 
@@ -743,7 +733,7 @@ static void do_realtime_check(void)
                          restore_action, g_valve_pre_alarm_order);
 
             IIC_Init();
-            motor_init();
+            bsp_motor_init();
             const char *vr = valve_execute(restore_action, 0);
             g_valve_alarm_closed = 0;
             config_save_ext();
@@ -873,26 +863,21 @@ static void do_sleep(void)
     int fourG_keep_on = 0;
 
 
-    gpio_bit_reset(GPIOA, GPIO_PIN_5);
-    gpio_bit_reset(GPIOD, GPIO_PIN_4);
-
-    gpio_bit_reset(GPIOA, GPIO_PIN_2);
-    gpio_bit_reset(GPIOA, GPIO_PIN_3);
-    gpio_bit_reset(GPIOC, GPIO_PIN_4);
-    gpio_bit_reset(GPIOC, GPIO_PIN_5);
-    gpio_bit_reset(GPIOB, GPIO_PIN_8);
+    // 深睡前固定引脚清理 (电机/蜂鸣器/调试串口/I2C电源)
+    bsp_motor_enable(0);
+    bsp_motor_drive_stop();
+    gpio_set_i2c_power(0);
+    gpio_debug_uart_pins_low();
+    buzzer_off();
     // PB9 = SLCD COM3, 不关??
     // PB6/PB7(I2C总线2 SCL/SDA): 不主动拉低, 由 gpio_enter_low_power 切 Analog
     // 避免在传感器断电过程中产生异常 I2C 信号导致下次上电后总线锁死
-
-    gpio_bit_reset(GPIOA, GPIO_PIN_6);
-    gpio_bit_reset(GPIOA, GPIO_PIN_7);
 
     // 4G电源管理: 根据window pattern决定PB5(V4G_EN)状??
     // 低电压省电模?? 强制4G断电
     if(voltage_low_power)
     {
-        gpio_bit_reset(GPIOB, GPIO_PIN_5);
+        gpio_set_4g_power(0);
     }
     else if(strcmp(g_window.pattern, "long") == 0)
     {
@@ -900,12 +885,12 @@ static void do_sleep(void)
         if(!fourG_user_off && !fourG_init_failed && !fourG_weak_signal && (config_is_active_window() || g_window.end_result == 1))
             fourG_keep_on = 1;
         else
-            gpio_bit_reset(GPIOB, GPIO_PIN_5);  // long+er=0+窗口??user_off/weak_signal: 4G断电
+            gpio_set_4g_power(0);  // long+er=0+窗口??user_off/weak_signal: 4G断电
     }
     else
     {
         // short/dot: 4G始终断电(由do_upload在上报完后已PowerOff)
-        gpio_bit_reset(GPIOB, GPIO_PIN_5);
+        gpio_set_4g_power(0);
     }
 
     // === LCD 延时关闭: LCD仍在显示?? 先短休眠??0秒超时再关闭 ===
@@ -1040,7 +1025,7 @@ static void do_sleep(void)
         {
             printf_debug("[SM] BLE timeout (%ds), auto power off\r\n", (int)elapsed);
             g_bt_on = 0;
-            gpio_bit_reset(GPIOC, GPIO_PIN_12);
+            gpio_set_ble_power(0);
             if(g_lcd_active) slcd_seg_icon_display(SLCD_ICON_LY, RESET);
         }
         else
@@ -1284,7 +1269,7 @@ static void do_wakeup(void)
         if(!voltage_low_power && !fourG_user_off && !fourG_init_failed && !fourG_weak_signal &&
            strcmp(g_window.pattern, "long") == 0 &&
            (config_is_active_window() || g_window.end_result == 1))
-            gpio_bit_set(GPIOB, GPIO_PIN_5);
+            gpio_set_4g_power(1);
         // 其余情况(VLP/user_off/weak_signal/short/dot/long+er=0+窗口??: PB5保持LOW
         
         rtc_show_time();
@@ -2221,7 +2206,7 @@ static void do_ble_ota(void)
         {
             printf_debug("[SM] BLE_OTA: 3-press detected, turning off BLE\r\n");
             g_bt_on = 0;
-            gpio_bit_reset(GPIOC, GPIO_PIN_12);
+            gpio_set_ble_power(0);
             if(g_lcd_active) slcd_seg_icon_display(SLCD_ICON_LY, RESET);
         }
     }

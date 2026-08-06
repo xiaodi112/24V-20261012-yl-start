@@ -1,8 +1,49 @@
 #include "mygpio.h"
 #include "eeprom_config.h"
 #include "lcd_ui.h"
+#include "board.h"
 
+// ===================== 板级输出控制 (引脚见 board.h) =====================
+// 4G 电源: PB5 HIGH=上电
+void gpio_set_4g_power(uint8_t on)
+{
+    if(on)
+        gpio_bit_set(BOARD_4G_V4G_EN_PORT, BOARD_4G_V4G_EN_PIN);
+    else
+        gpio_bit_reset(BOARD_4G_V4G_EN_PORT, BOARD_4G_V4G_EN_PIN);
+}
 
+// 4G 电源状态: 返回 1=上电
+uint8_t gpio_get_4g_power(void)
+{
+    return (gpio_input_bit_get(BOARD_4G_V4G_EN_PORT, BOARD_4G_V4G_EN_PIN) == SET) ? 1 : 0;
+}
+
+// 蓝牙电源: PC12 HIGH=上电
+void gpio_set_ble_power(uint8_t on)
+{
+    if(on)
+        gpio_bit_set(BOARD_BLE_PWR_PORT, BOARD_BLE_PWR_PIN);
+    else
+        gpio_bit_reset(BOARD_BLE_PWR_PORT, BOARD_BLE_PWR_PIN);
+}
+
+// I2C 电子开关: PD4 HIGH=上电
+void gpio_set_i2c_power(uint8_t on)
+{
+    if(on)
+        gpio_bit_set(BOARD_I2C_PWR_SW_PORT, BOARD_I2C_PWR_SW_PIN);
+    else
+        gpio_bit_reset(BOARD_I2C_PWR_SW_PORT, BOARD_I2C_PWR_SW_PIN);
+}
+
+// 深睡前将调试串口引脚拉低 (含历史保留的 PA2/PA3)
+void gpio_debug_uart_pins_low(void)
+{
+    gpio_bit_reset(BOARD_DBG_UART_TX_PORT, BOARD_DBG_UART_TX_PIN);
+    gpio_bit_reset(BOARD_DBG_UART_RX_PORT, BOARD_DBG_UART_RX_PIN);
+    gpio_bit_reset(GPIOA, GPIO_PIN_2 | GPIO_PIN_3);   /* 历史保留: 文档旧记 USART0 */
+}
 
 void gpio_init(void)
 {
@@ -21,21 +62,21 @@ void gpio_init(void)
      *   PB5(V4G_EN 4G 电源): 默认 LOW (4G 默认断电)
      */
 
-    gpio_mode_set(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_0);
-    gpio_output_options_set(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_0);
-	gpio_bit_set(GPIOA, GPIO_PIN_0);
+    gpio_mode_set(BOARD_4G_DTR_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BOARD_4G_DTR_PIN);
+    gpio_output_options_set(BOARD_4G_DTR_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, BOARD_4G_DTR_PIN);
+	gpio_bit_set(BOARD_4G_DTR_PORT, BOARD_4G_DTR_PIN);
 
-    gpio_mode_set(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_8);
-    gpio_output_options_set(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_8);
+    gpio_mode_set(BOARD_BUZZER_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BOARD_BUZZER_PIN);
+    gpio_output_options_set(BOARD_BUZZER_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, BOARD_BUZZER_PIN);
 
-    gpio_mode_set(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_12);
-    gpio_output_options_set(GPIOC, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_12);
+    gpio_mode_set(BOARD_BLE_PWR_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BOARD_BLE_PWR_PIN);
+    gpio_output_options_set(BOARD_BLE_PWR_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, BOARD_BLE_PWR_PIN);
 
-    gpio_mode_set(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_4);
-    gpio_output_options_set(GPIOD, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_4);
+    gpio_mode_set(BOARD_I2C_PWR_SW_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BOARD_I2C_PWR_SW_PIN);
+    gpio_output_options_set(BOARD_I2C_PWR_SW_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, BOARD_I2C_PWR_SW_PIN);
 
-    gpio_mode_set(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_5);
-    gpio_output_options_set(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_5);
+    gpio_mode_set(BOARD_4G_V4G_EN_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BOARD_4G_V4G_EN_PIN);
+    gpio_output_options_set(BOARD_4G_V4G_EN_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, BOARD_4G_V4G_EN_PIN);
 }
 
 // ===================== PD0(Btn1) 按键唤醒 =====================
@@ -72,7 +113,7 @@ void button_exti_disable(void)
 // 读取PD0(Btn1)电平: 1=按下(LOW), 0=松开(HIGH)
 uint8_t button_is_pressed(void)
 {
-    return (gpio_input_bit_get(GPIOD, GPIO_PIN_0) == RESET) ? 1 : 0;
+    return (gpio_input_bit_get(BOARD_BUTTON_PORT, BOARD_BUTTON_PIN) == RESET) ? 1 : 0;
 }
 
 // ===================== 极低功耗休眠配置 =====================
@@ -159,11 +200,11 @@ void gpio_set_4g_dtr(uint8_t level)
 {
     if(level)
     {
-        gpio_bit_set(GPIOA, GPIO_PIN_0);
+        gpio_bit_set(BOARD_4G_DTR_PORT, BOARD_4G_DTR_PIN);
     }
     else
     {
-        gpio_bit_reset(GPIOA, GPIO_PIN_0);
+        gpio_bit_reset(BOARD_4G_DTR_PORT, BOARD_4G_DTR_PIN);
     }
 }
 
@@ -172,12 +213,12 @@ void gpio_set_4g_dtr(uint8_t level)
 void ble_link_gpio_init(void)
 {
     rcu_periph_clock_enable(RCU_GPIOD);
-    gpio_mode_set(GPIOD, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO_PIN_2);
+    gpio_mode_set(BOARD_BLE_LINK_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, BOARD_BLE_LINK_PIN);
 }
 
 uint8_t ble_link_is_connected(void)
 {
-    return (gpio_input_bit_get(GPIOD, GPIO_PIN_2) == RESET) ? 1 : 0;
+    return (gpio_input_bit_get(BOARD_BLE_LINK_PORT, BOARD_BLE_LINK_PIN) == RESET) ? 1 : 0;
 }
 
 // ===================== PD2 蓝牙连接 EXTI 唤醒 =====================
@@ -190,7 +231,7 @@ void ble_exti_init(void)
     rcu_periph_clock_enable(RCU_SYSCFG);
 
     // PD2: 输入, 内部上拉 (空闲HIGH, 连接LOW)
-    gpio_mode_set(GPIOD, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO_PIN_2);
+    gpio_mode_set(BOARD_BLE_LINK_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, BOARD_BLE_LINK_PIN);
 
     // EXTI2 → PD2, 下降沿触发
     syscfg_exti_line_config(EXTI_SOURCE_GPIOD, EXTI_SOURCE_PIN2);
@@ -221,7 +262,7 @@ void ri_exti_init(void)
     rcu_periph_clock_enable(RCU_SYSCFG);
 
     // PA1: 输入, 内部上拉 (RI空闲HIGH, 有数据时LOW)
-    gpio_mode_set(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO_PIN_1);
+    gpio_mode_set(BOARD_4G_RI_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, BOARD_4G_RI_PIN);
 
     // EXTI1 → PA1, 下降沿触发
     syscfg_exti_line_config(EXTI_SOURCE_GPIOA, EXTI_SOURCE_PIN1);

@@ -368,6 +368,24 @@ void slcd_seg_configuration(void)
     s_shadow[3] = SLCD_DATA0;
 }
 
+// ===================== SLCD 引脚全部转 Analog (关屏/低功耗) =====================
+// 与无 LCD 产品状态完全一致, 由 lcd_shutdown() 调用
+void slcd_pins_to_analog(void)
+{
+    rcu_periph_clock_enable(RCU_GPIOA);
+    rcu_periph_clock_enable(RCU_GPIOB);
+    rcu_periph_clock_enable(RCU_GPIOC);
+    gpio_mode_set(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE,
+                  GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10);                   /* COM0-2 */
+    gpio_mode_set(GPIOB, GPIO_MODE_ANALOG, GPIO_PUPD_NONE,
+                  GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_9 |                    /* SEG5,6 + COM3 */
+                  GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12 |                 /* SEG10-12 */
+                  GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);                 /* SEG13-15 */
+    gpio_mode_set(GPIOC, GPIO_MODE_ANALOG, GPIO_PUPD_NONE,
+                  GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 |                    /* SEG24-26 */
+                  GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11);                  /* SEG27-29 */
+}
+
 void slcd_seg_flush(void)
 {
     while(slcd_flag_get(SLCD_FLAG_UPR));
@@ -948,7 +966,6 @@ void slcd_seg_clear_all(void)
     s_shadow[3] = 0;
     slcd_auto_flush();
 }
-
 
 
 

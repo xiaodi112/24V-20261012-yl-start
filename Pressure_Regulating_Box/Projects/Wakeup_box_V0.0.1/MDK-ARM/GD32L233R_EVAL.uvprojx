@@ -705,6 +705,16 @@
               <FilePath>.\my_Library\valve.h</FilePath>
             </File>
             <File>
+              <FileName>bsp_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\my_Library\bsp_motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\my_Library\bsp_motor.h</FilePath>
+            </File>
+            <File>
               <FileName>fault_log.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\my_Library\fault_log.c</FilePath>

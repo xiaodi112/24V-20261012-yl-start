@@ -320,9 +320,9 @@ void lcd_ui_toggle_bluetooth(void)
 {
     g_bt_on ^= 1;
     if(g_bt_on) {
-        gpio_bit_set(GPIOC, GPIO_PIN_12);
+        gpio_set_ble_power(1);
     } else {
-        gpio_bit_reset(GPIOC, GPIO_PIN_12);
+        gpio_set_ble_power(0);
     }
     slcd_seg_icon_display(SLCD_ICON_LY, g_bt_on ? SET : RESET);
 }

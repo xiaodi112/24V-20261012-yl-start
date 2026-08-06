@@ -69,6 +69,7 @@ typedef enum {
 
 /* configure SLCD peripheral */
 void slcd_seg_configuration(void);
+void slcd_pins_to_analog(void);   /* 全部 COM/SEG 引脚转 Analog (关屏/低功耗) */
 /* display one digit at position 1..5 */
 void slcd_seg_digit_display(uint8_t ch, uint8_t position);
 /* display an integer, right aligned, max 5 digits */

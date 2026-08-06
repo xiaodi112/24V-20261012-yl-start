@@ -1,12 +1,13 @@
 #include "i2c_eeprom.h"
 #include "gd32l23x.h"
 #include "delay.h"
+#include "board.h"
 
-/* 配置IIC连接的GPIO引脚，用户仅需修改此处4行即可切换SCL/SDA引脚 */
-#define GPIO_PORT_IIC     GPIOB                       /* GPIO端口 */
-#define RCC_IIC_ENABLE    rcu_periph_clock_enable(RCU_GPIOB)  /* GPIO时钟使能 */
-#define IIC_SCL_PIN       GPIO_PIN_6                  /* 连接SCL时钟线的GPIO */
-#define IIC_SDA_PIN       GPIO_PIN_7                  /* 连接SDA数据线的GPIO */
+/* 位操作IIC连接的GPIO引脚 (定义见 board.h, 传感器2 总线) */
+#define GPIO_PORT_IIC     BOARD_I2C1_SCL_PORT
+#define RCC_IIC_ENABLE    rcu_periph_clock_enable(BOARD_I2C1_SCL_PORT == GPIOB ? RCU_GPIOB : RCU_GPIOC)
+#define IIC_SCL_PIN       BOARD_I2C1_SCL_PIN
+#define IIC_SDA_PIN       BOARD_I2C1_SDA_PIN
 
 /* 读写SCL和SDA的宏，优先使用GPIO库函数实现（兼容GD32标准库） */
 #if 1   /* 方式1：使用GPIO库函数操作IO */

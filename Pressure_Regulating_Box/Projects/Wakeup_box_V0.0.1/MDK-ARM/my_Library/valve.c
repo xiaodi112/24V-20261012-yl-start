@@ -5,36 +5,94 @@
 #include "usart.h"
 #include <string.h>
 
-// ç”µæœºåŠŸèƒ½å¼€å…³: 0=å…³é—­(é»˜è®¤), 1=å¼€å¯
+// µç»ú¹¦ÄÜ¿ª¹Ø: 0=¹Ø±Õ(Ä¬ÈÏ), 1=¿ªÆô
 uint8_t g_motor_enabled = 1;
 
-// ==================== ç”µæœº GPIO åˆå§‹åŒ– ====================
+// ==================== µç»ú GPIO ³õÊ¼»¯ ====================
 void motor_init(void)
 {
     if(!g_motor_enabled) return;
     rcu_periph_clock_enable(RCU_GPIOA);
 
-    /* PA11: é™ä½1(å¼€é˜€åˆ°ä½), PA12: é™ä½2(å…³é˜€åˆ°ä½), å†…éƒ¨ä¸Šæ‹‰ï¼ˆä½ç”µå¹³=åˆ°ä½ï¼‰ */
+    /* PA5: M_SLP µç»úÇı¶¯Ê¹ÄÜÊä³ö, ÍÆÍì, ³õÊ¼LOW¹Ø±Õ */
+    gpio_mode_set(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_5);
+    gpio_output_options_set(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_2MHZ, GPIO_PIN_5);
+    gpio_bit_reset(GPIOA, GPIO_PIN_5);
+
+    /* PA11: ÏŞÎ»1(¿ª·§µ½Î»), PA12: ÏŞÎ»2(¹Ø·§µ½Î»), ÄÚ²¿ÉÏÀ­£¨µÍµçÆ½=µ½Î»£© */
     gpio_mode_set(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO_PIN_11 | GPIO_PIN_12);
 
-    /* PA6/PA7: ç”µæœºæ§åˆ¶GPIOè¾“å‡º */
+#if defined(MOTOR_DRV_PWM)
+    /* PWM Çı¶¯: PA6/PA7 ¸´ÓÃ TIMER2 CH0/CH1, ³õÊ¼Á½Â·0%Í£Ö¹ */
+    pwm_init(MOTOR_PWM_FREQ_HZ, 0.0f, 0.0f);
+#else
+    /* ¸ßµÍµçÆ½Ö±Çı: PA6/PA7 GPIO Êä³ö, ³õÊ¼Ë«µÍÍ£Ö¹ */
     gpio_mode_set(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_6 | GPIO_PIN_7);
+    gpio_bit_reset(GPIOA, GPIO_PIN_6);
+    gpio_bit_reset(GPIOA, GPIO_PIN_7);
+#endif
 }
 
-// ==================== é™ä½å¼€å…³è¯»å– ====================
-// PA11: K1-S å¼€é˜€åˆ°ä½ï¼ˆä½ç”µå¹³=åˆ°ä½ï¼‰
+// ==================== ÏŞÎ»¿ª¹Ø¶ÁÈ¡ ====================
+// PA11: K1-S ¿ª·§µ½Î»£¨µÍµçÆ½=µ½Î»£©
 uint8_t motor_limit1_reached(void)
 {
     return (gpio_input_bit_get(GPIOA, GPIO_PIN_11) == RESET) ? 1 : 0;
 }
 
-// PA12: K2-S å…³é˜€åˆ°ä½ï¼ˆä½ç”µå¹³=åˆ°ä½ï¼‰
+// PA12: K2-S ¹Ø·§µ½Î»£¨µÍµçÆ½=µ½Î»£©
 uint8_t motor_limit2_reached(void)
 {
     return (gpio_input_bit_get(GPIOA, GPIO_PIN_12) == RESET) ? 1 : 0;
 }
 
-// ==================== é˜€é—¨åŠ¨ä½œæ‰§è¡Œ (å«valve_erræ£€æµ‹) ====================
+// ==================== µç»úÇı¶¯Ô­Óï (ºêÑ¡ÔñÇı¶¯·½Ê½) ====================
+// M_SLP: Çı¶¯Ğ¾Æ¬Ê¹ÄÜ, ¶¯×÷ÆÚ¼äÖÃHIGH, ½áÊøºóÖÃLOW (Á½ÖÖÇı¶¯·½Ê½¹²ÓÃ)
+static void motor_slp_set(uint8_t on)
+{
+    if(on)
+        gpio_bit_set(GPIOA, GPIO_PIN_5);
+    else
+        gpio_bit_reset(GPIOA, GPIO_PIN_5);
+}
+
+// ¿ª·§·½Ïò: PWM=CH0 0% / CH1 99.9%; GPIO=PA6µÍ/PA7¸ß
+static void motor_drive_open(void)
+{
+#if defined(MOTOR_DRV_PWM)
+    pwm_set_duty(0, 0.0f);
+    pwm_set_duty(1, 0.999f);
+#else
+    gpio_bit_reset(GPIOA, GPIO_PIN_6);
+    gpio_bit_set(GPIOA, GPIO_PIN_7);
+#endif
+}
+
+// ¹Ø·§·½Ïò: PWM=CH0 99.9% / CH1 0%; GPIO=PA6¸ß/PA7µÍ
+static void motor_drive_close(void)
+{
+#if defined(MOTOR_DRV_PWM)
+    pwm_set_duty(0, 0.999f);
+    pwm_set_duty(1, 0.0f);
+#else
+    gpio_bit_set(GPIOA, GPIO_PIN_6);
+    gpio_bit_reset(GPIOA, GPIO_PIN_7);
+#endif
+}
+
+// Í£Ö¹: Á½Â·È«Í£ (GPIOË«µÍ = PWMË«0%Êä³öµÍ, ĞĞÎªÒ»ÖÂ)
+static void motor_drive_stop(void)
+{
+#if defined(MOTOR_DRV_PWM)
+    pwm_set_duty(0, 0.0f);
+    pwm_set_duty(1, 0.0f);
+#else
+    gpio_bit_reset(GPIOA, GPIO_PIN_6);
+    gpio_bit_reset(GPIOA, GPIO_PIN_7);
+#endif
+}
+
+// ==================== ·§ÃÅ¶¯×÷Ö´ĞĞ (º¬valve_err¼ì²â) ====================
 const char* valve_execute(const char *action, uint8_t update_last_order)
 {
     if(!g_motor_enabled)
@@ -45,22 +103,24 @@ const char* valve_execute(const char *action, uint8_t update_last_order)
 
     uint32_t t;
     uint8_t target_limit, wrong_limit;
+    uint8_t is_open  = (strcmp(action, "open") == 0 || strcmp(action, "1") == 0);
+    uint8_t is_close = (strcmp(action, "close") == 0 || strcmp(action, "0") == 0);
 
-//    gpio_bit_set(GPIOA, GPIO_PIN_5);    // M_SLP HIGH: ç”µæœºé©±åŠ¨ä½¿èƒ½
-//    pwm_init(160000, 0.0f, 0.0f);
+    if(!is_open && !is_close)
+        return "valve_err";
 
-    if(strcmp(action, "open") == 0 || strcmp(action, "1") == 0)
+    // M_SLP HIGH: Ê¹ÄÜµç»úÇı¶¯ (Á½ÖÖÇı¶¯·½Ê½¹²ÓÃ)
+    motor_slp_set(1);
+
+    if(is_open)
     {
         printf_debug("[SM] Valve OPEN\r\n");
-//        pwm_set_duty(0, 0.0f);
-//        pwm_set_duty(1, 0.999f);
-		gpio_bit_reset(GPIOA, GPIO_PIN_6); 
-		gpio_bit_set(GPIOA, GPIO_PIN_7); 
+        motor_drive_open();
         t = trea_millis();
         while(!motor_limit1_reached() && (trea_millis() - t) < 20000);
 
-        // åˆ°ä½åä¿æŒåŸåŠ¨ä½œ (delay_switch=1 æ—¶), ç”¨äºå‹ç´§é˜€èŠ¯
-        // å®‰å…¨ clamp: å³ä½¿ g_vdelay.delay_ms è¢«å¤–éƒ¨è¯¯ä¿®æ”¹, ä¹Ÿä¸è¶…è¿‡ VDLY_DELAY_MS_MAX
+        // µ½Î»ºó±£³ÖÔ­¶¯×÷ (delay_switch=1 Ê±), ÓÃÓÚÑ¹½ô·§Ğ¾
+        // °²È« clamp: ¼´Ê¹ g_vdelay.delay_ms ±»Íâ²¿ÎóĞŞ¸Ä, Ò²²»³¬¹ı VDLY_DELAY_MS_MAX
         if(motor_limit1_reached() && g_vdelay.enabled && g_vdelay.delay_ms > 0)
         {
             uint16_t hold_ms = g_vdelay.delay_ms > VDLY_DELAY_MS_MAX ? VDLY_DELAY_MS_MAX : g_vdelay.delay_ms;
@@ -68,38 +128,19 @@ const char* valve_execute(const char *action, uint8_t update_last_order)
             trea_delay_ms(hold_ms);
         }
 
-		
-		gpio_bit_reset(GPIOA, GPIO_PIN_6); 
-		gpio_bit_reset(GPIOA, GPIO_PIN_7); 
+        motor_drive_stop();
 
         target_limit = motor_limit1_reached();
         wrong_limit  = motor_limit2_reached();
-
-        // valve_err: ä¸¤ä¸ªé™ä½åŒæ—¶è§¦å‘, æˆ–ç›®æ ‡æœªåˆ°ä½ä¸”åå‘é™ä½ä¹Ÿæœªåˆ°ä½(æœºæ¢°å¡æ­»)
-        if(target_limit && wrong_limit)
-            return "valve_err";
-        if(target_limit)
-        {
-            if(update_last_order) { g_valve_last_order = 1; config_save_ext(); }
-            return "valve_on";
-        }
-        // è¶…æ—¶: æ£€æŸ¥æ˜¯å¦åå‘é™ä½ä»è§¦å‘(æœºæ¢°æ•…éšœ)
-        if(wrong_limit)
-            return "valve_err";
-        return "valve_timeout";
     }
-    else if(strcmp(action, "close") == 0 || strcmp(action, "0") == 0)
+    else
     {
         printf_debug("[SM] Valve CLOSE\r\n");
-		gpio_bit_set(GPIOA, GPIO_PIN_6); 
-		gpio_bit_reset(GPIOA, GPIO_PIN_7); 
-//        pwm_set_duty(0, 0.999f);
-//        pwm_set_duty(1, 0.0f);
+        motor_drive_close();
         t = trea_millis();
         while(!motor_limit2_reached() && (trea_millis() - t) < 20000);
 
-        // åˆ°ä½åä¿æŒåŸåŠ¨ä½œ (delay_switch=1 æ—¶), ç”¨äºå‹ç´§é˜€èŠ¯
-        // å®‰å…¨ clamp ä¸ OPEN åˆ†æ”¯ä¸€è‡´
+        // µ½Î»ºó±£³ÖÔ­¶¯×÷ (delay_switch=1 Ê±), ÓÃÓÚÑ¹½ô·§Ğ¾
         if(motor_limit2_reached() && g_vdelay.enabled && g_vdelay.delay_ms > 0)
         {
             uint16_t hold_ms = g_vdelay.delay_ms > VDLY_DELAY_MS_MAX ? VDLY_DELAY_MS_MAX : g_vdelay.delay_ms;
@@ -107,37 +148,33 @@ const char* valve_execute(const char *action, uint8_t update_last_order)
             trea_delay_ms(hold_ms);
         }
 
-		gpio_bit_reset(GPIOA, GPIO_PIN_6); 
-		gpio_bit_reset(GPIOA, GPIO_PIN_7); 
-//        pwm_set_duty(0, 0.0f);
-//        pwm_set_duty(1, 0.0f);
+        motor_drive_stop();
 
         target_limit = motor_limit2_reached();
         wrong_limit  = motor_limit1_reached();
-
-//        gpio_bit_reset(GPIOA, GPIO_PIN_5);
-
-        if(target_limit && wrong_limit)
-            return "valve_err";
-        if(target_limit)
-        {
-            if(update_last_order) { g_valve_last_order = 0; config_save_ext(); }
-            return "valve_off";
-        }
-        if(wrong_limit)
-            return "valve_err";
-        return "valve_timeout";
     }
 
-//    gpio_bit_reset(GPIOA, GPIO_PIN_5);
-    return "valve_err";
+    // M_SLP LOW: ¹Ø±Õµç»úÇı¶¯
+    motor_slp_set(0);
+
+    // valve_err: Á½¸öÏŞÎ»Í¬Ê±´¥·¢, »òÄ¿±êÎ´µ½Î»ÇÒ·´ÏòÏŞÎ»Ò²Î´´¥·¢(»úĞµ¿¨ËÀ)
+    if(target_limit && wrong_limit)
+        return "valve_err";
+    if(target_limit)
+    {
+        if(update_last_order) { g_valve_last_order = is_open ? 1 : 0; config_save_ext(); }
+        return is_open ? "valve_on" : "valve_off";
+    }
+    if(wrong_limit)
+        return "valve_err";
+    return "valve_timeout";
 }
 
-// ==================== é˜€é—¨å®æ—¶çŠ¶æ€æŸ¥è¯¢ (ä¸åŠ¨ä½œ) ====================
+// ==================== ·§ÃÅÊµÊ±×´Ì¬²éÑ¯ (²»¶¯×÷) ====================
 const char* valve_get_status(void)
 {
-    uint8_t l1 = motor_limit1_reached();  // å¼€é˜€åˆ°ä½
-    uint8_t l2 = motor_limit2_reached();  // å…³é˜€åˆ°ä½
+    uint8_t l1 = motor_limit1_reached();  // ¿ª·§µ½Î»
+    uint8_t l2 = motor_limit2_reached();  // ¹Ø·§µ½Î»
 
     if(l1 && l2)  return "valve_err";
     if(l1)        return "valve_on";

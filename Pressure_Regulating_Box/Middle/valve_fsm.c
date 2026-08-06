@@ -180,6 +180,11 @@ uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t p
         return 0;
     }
 
+    /* 每次动作前确保电机/限位引脚处于正确配置:
+     * 深睡唤醒后 PA11/PA12 可能处于 Analog 状态, 读取恒为低电平会被误判为"已到位",
+     * 导致电机刚启动就完成停机 (与阀门实际位置无关). bsp_motor_init() 为幂等操作. */
+    bsp_motor_init();
+
     /* 忙时处理: 同方向重复指令视为已接受; 反方向需 preempt 抢占 */
     if(s_vfsm.state != VALVE_FSM_IDLE)
     {
@@ -201,6 +206,9 @@ uint8_t valve_fsm_start(const char *action, uint8_t update_last_order, uint8_t p
      * 后者可能是上一轮动作的方向或 init 后的初始值, 会导致目标/反向限位互换 */
     target = is_open ? bsp_motor_limit_open()  : bsp_motor_limit_close();
     wrong  = is_open ? bsp_motor_limit_close() : bsp_motor_limit_open();
+    printf_debug("[VALVE] limits at start: open=%d close=%d (dir=%s)\r\n",
+                 (int)bsp_motor_limit_open(), (int)bsp_motor_limit_close(),
+                 is_open ? "OPEN" : "CLOSE");
     if(target && wrong)
     {
         printf_debug("[VALVE] both limits active, abort without energizing\r\n");

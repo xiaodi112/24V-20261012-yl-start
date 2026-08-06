@@ -28,8 +28,7 @@ static void reset(void)
     memset(&g_vdelay, 0, sizeof(g_vdelay));
 }
 
-/* 契约: g_motor_enabled=0 (无电机变体) 时,
- *   动作返回 valve_err, 状态上报为 0 (valve_off) */
+/* 契约: g_motor_enabled=0 时, 电机动作与阀门状态上报全部失效 (返回 valve_err) */
 static void test_motor_disabled_contract(void)
 {
     reset();
@@ -38,8 +37,8 @@ static void test_motor_disabled_contract(void)
     /* 动作失效 */
     CHECK(strcmp(valve_execute("open", 1), "valve_err") == 0);
     CHECK(strcmp(valve_execute("close", 0), "valve_err") == 0);
-    /* 状态上报为 0 (valve_off) */
-    CHECK(strcmp(valve_get_status(), "valve_off") == 0);
+    /* 状态上报失效 */
+    CHECK(strcmp(valve_get_status(), "valve_err") == 0);
     /* 电机从未被使能/驱动 */
     CHECK(test_motor_enable == 0);
     CHECK(test_drive == 0);

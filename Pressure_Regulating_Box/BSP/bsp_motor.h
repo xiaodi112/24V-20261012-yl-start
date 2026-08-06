@@ -10,9 +10,9 @@
 
 #include <stdint.h>
 
-/* 电机功能开关 (产品级配置, 无电机变体):
- *   0 = 无电机变体: 任何阀门动作返回 valve_err, 阀门状态上报为 0 (valve_off)
- *   1 = 电机功能启用 */
+/* 电机功能开关 (产品级配置):
+ *   0 = 电机功能全部禁用 (动作与阀门状态上报均失效, 返回 valve_err)
+ *   1 = 电机功能启用 (默认值由产品配置决定, 见 bsp_motor.c) */
 extern uint8_t g_motor_enabled;
 
 void bsp_motor_init(void);               /* 引脚初始化 (含 M_SLP 使能脚, 初始关闭) */

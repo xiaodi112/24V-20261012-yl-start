@@ -6,7 +6,7 @@
 #include "ota_info.h"
 #include "threshold.h"
 
-#define APP_FW_VERSION_NUM     4
+#define APP_FW_VERSION_NUM     1
 typedef struct {
     PT304D_Data raw;
     PT304D_Data raw2;
@@ -26,8 +26,10 @@ typedef struct {
 
 extern SensorContext_t g_sensor;
 
-// å…¬å…±åŠŸèƒ½å‡½æ•° (main.c å®šä¹‰, downlink.c ç­‰æ¨¡å—è°ƒç”¨)
+// ¹«¹²¹¦ÄÜº¯Êı (main.c ¶¨Òå, downlink.c µÈÄ£¿éµ÷ÓÃ)
 void lcd_shutdown(void);
 const char* alarm_try_close_valve(ThresholdResult_t result);
+// ¶¨Ê±·§ÃÅÖÜÆÚ¼ì²é (×èÈûÁ÷³ÌÄÚµ÷ÓÃ): keep_online=1 ±£³Ö4GÔÚÏß²»¸Ä±ä»á»°
+void vtiming_check(uint8_t keep_online);
 
 #endif

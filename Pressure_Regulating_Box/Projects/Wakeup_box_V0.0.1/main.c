@@ -1,19 +1,19 @@
 /**
  * @file main.c
- * @brief å®¶ç”¨é˜€é—¨ç‰©è”ç½‘æ§åˆ¶ï¿½?ï¿½?çŠ¶æ€æœºé©±åŠ¨ä½åŠŸè€—ä¸»ç¨‹åº
+ * @brief ¼ÒÓÃ·§ÃÅÎïÁªÍø¿ØÖÆ????×´Ì¬»úÇı¶¯µÍ¹¦ºÄÖ÷³ÌĞò
  *
- * æ¶æ„: MQTTæŒä¹…è¿æ¥ + MCUæ·±ä¼‘ï¿½?+ LPUARTå”¤é†’æ¥æ”¶ä¸‹å‘
+ * ¼Ü¹¹: MQTT³Ö¾ÃÁ¬½Ó + MCUÉîĞİ??+ LPUART»½ĞÑ½ÓÊÕÏÂ·¢
  *
- * çŠ¶æ€æœº (7ä¸ªçŠ¶ï¿½?:
- *   STATE_INIT     ï¿½?ä¸Šç”µåˆå§‹ï¿½?MQTTè¿æ¥+è®¢é˜…+é¦–æ¬¡ä¸ŠæŠ¥ ï¿½?STATE_SLEEP
- *   STATE_SLEEP    ï¿½?è®¾é—¹ï¿½?æ·±ä¼‘ï¿½?æ¨¡å—QSCLKä¿æŒMQTT) ï¿½?STATE_WAKEUP
- *   STATE_WAKEUP   ï¿½?æ¢å¤å¤–è®¾+åˆ¤æ–­å”¤é†’ï¿½?
- *                     RTCé—¹é’Ÿ ï¿½?STATE_COLLECT
- *                     LPUART  ï¿½?STATE_DOWNLINK
- *   STATE_COLLECT  ï¿½?é‡‡é›†+é˜ˆå€¼æ£€ï¿½?å­˜å…¥ç¼“å†²ï¿½?ï¿½?STATE_UPLOAD/ALARM/SLEEP
- *   STATE_UPLOAD   ï¿½?æ‰¹é‡é€æ¡ä¸ŠæŠ¥+æ¸…ç©ºç¼“å†²ï¿½?ï¿½?STATE_SLEEP
- *   STATE_DOWNLINK ï¿½?è¯»å–+å¤„ç†MQTTä¸‹å‘æŒ‡ä»¤+ç«‹å³ä¸ŠæŠ¥ç»“æœ ï¿½?STATE_SLEEP
- *   STATE_ALARM    ï¿½?5æ¬¡é‡é‡‡ç¡®ï¿½?æŠ¥è­¦ä¸ŠæŠ¥ ï¿½?STATE_SLEEP
+ * ×´Ì¬»ú (7¸ö×´??:
+ *   STATE_INIT     ??ÉÏµç³õÊ¼??MQTTÁ¬½Ó+¶©ÔÄ+Ê×´ÎÉÏ±¨ ??STATE_SLEEP
+ *   STATE_SLEEP    ??ÉèÄÖ??ÉîĞİ??Ä£¿éQSCLK±£³ÖMQTT) ??STATE_WAKEUP
+ *   STATE_WAKEUP   ??»Ö¸´ÍâÉè+ÅĞ¶Ï»½ĞÑ??
+ *                     RTCÄÖÖÓ ??STATE_COLLECT
+ *                     LPUART  ??STATE_DOWNLINK
+ *   STATE_COLLECT  ??²É¼¯+ãĞÖµ¼ì??´æÈë»º³å????STATE_UPLOAD/ALARM/SLEEP
+ *   STATE_UPLOAD   ??ÅúÁ¿ÖğÌõÉÏ±¨+Çå¿Õ»º³å????STATE_SLEEP
+ *   STATE_DOWNLINK ??¶ÁÈ¡+´¦ÀíMQTTÏÂ·¢Ö¸Áî+Á¢¼´ÉÏ±¨½á¹û ??STATE_SLEEP
+ *   STATE_ALARM    ??5´ÎÖØ²ÉÈ·??±¨¾¯ÉÏ±¨ ??STATE_SLEEP
  */
 
 #include "gd32l23x.h"
@@ -44,8 +44,9 @@
 #include "buzzer.h"
 #include "ble_ota.h"
 #include "json_builder.h"
+#include "eeprom_history.h"
 
-// ==================== çŠ¶æ€å®šï¿½?====================
+// ==================== ×´Ì¬¶¨??====================
 typedef enum {
     STATE_INIT = 0,
     STATE_SLEEP,
@@ -57,37 +58,39 @@ typedef enum {
     STATE_BLE_OTA
 } AppState_t;
 
-// ==================== å…¨å±€å˜é‡ ====================
+// ==================== È«¾Ö±äÁ¿ ====================
 SensorContext_t g_sensor = { .last_pressure_collect = -1.0f, .last_pressure_realtime = -1.0f, .last_pressure_collect2 = -1.0f, .last_pressure_realtime2 = -1.0f, .prev_online = 1, .offline_cnt = 0, .online_cnt = 0, .prev_online2 = 1, .offline_cnt2 = 0, .online_cnt2 = 0 };
 
-#define SENSOR_OFFLINE_DEBOUNCE  3   // è¿ç»­Næ¬¡ç¦»çº¿æ‰ç¡®è®¤çŠ¶æ€å˜ï¿½?
-#define SENSOR_ONLINE_DEBOUNCE   2   // è¿ç»­Næ¬¡ä¸Šçº¿æ‰ç¡®è®¤çŠ¶æ€å˜ï¿½?(é˜²æ¥è§¦ä¸è‰¯æŠ–ï¿½?
-#define	one_by_one_delay		 900	//æ‰¹é‡é€æ¡å»¶æ—¶
+#define SENSOR_OFFLINE_DEBOUNCE  3   // Á¬ĞøN´ÎÀëÏß²ÅÈ·ÈÏ×´Ì¬±ä??
+#define SENSOR_ONLINE_DEBOUNCE   2   // Á¬ĞøN´ÎÉÏÏß²ÅÈ·ÈÏ×´Ì¬±ä??(·À½Ó´¥²»Á¼¶¶??
+#define	one_by_one_delay		 900	//ÅúÁ¿ÖğÌõÑÓÊ±
 
 static volatile uint16_t wakeup_count = 0;
 static AppState_t app_state = STATE_INIT;
-static uint8_t dot_uploaded_this_hour = 0;  // dotæ¨¡å¼: é˜²æ­¢åŒä¸€å°æ—¶é‡å¤ä¸ŠæŠ¥
-// valve_alarm_closed / valve_pre_alarm_order å·²ç§»ï¿½?g_* å…¨å±€ (EEPROM æŒä¹…ï¿½? OTA é‡å¯åå¯æ¢å¤), ï¿½?eeprom_config.h
-uint8_t voltage_low_power = 0;              // ä½ç”µå‹çœç”µæ¨¡ï¿½? ï¿½?:00/18:00ä¸ŠæŠ¥
-uint8_t fourG_user_off = 0;                 // ç”¨æˆ·ä¸»åŠ¨å…³æœº4Gæ ‡å¿—(é˜»æ­¢do_wakeupç›²ç›®æ¢å¤PD9)
-static uint8_t fourG_init_failed = 0;       // 4Gæ³¨ç½‘å¤±è´¥æ ‡å¿—(é˜»æ­¢do_sleepä¿æŒ4Gä¾›ç”µ, ä¸‹æ¬¡ä¸ŠæŠ¥å‘¨æœŸé‡è¯•)
-static uint8_t fourG_weak_signal = 0;       // å¼±ä¿¡å·æ–­ç”µæ ‡å¿—(longæ¨¡å¼ä¸‹CSQè¿‡ä½, æš‚æ—¶æŒ‰éœ€å†·å¯åŠ¨)
-#define CSQ_WEAK_THRESHOLD  11               // CSQ<æ­¤å€¼è§¦å‘æ–­ç”µçœç”µ(8â‰ˆ-97dBm)
-static uint8_t vlp_uploaded_this_hour = 0;  // ä½ç”µå‹æ¨¡ï¿½? é˜²æ­¢åŒä¸€å°æ—¶é‡å¤ä¸ŠæŠ¥
-ThresholdResult_t last_realtime_alarm = THRESHOLD_OK;          // å®æ—¶æ¨¡å¼é˜²é‡å¤æŠ¥ï¿½?
-static uint8_t g_is_minimal_wakeup = 0;            // æ ‡å¿—ï¼šæ˜¯å¦ä¸ºçº¯å‘¨æœŸä¼ æ„Ÿå™¨é‡‡é›†çš„æœ€ç®€å”¤é†’çŠ¶ï¿½?
-uint8_t g_need_adc_sampling = 1;                   // æ ‡å¿—ï¼šå½“å‰å‘¨æœŸæ˜¯å¦éœ€è¦è¿›è¡Œç”µæ± ç”µå‹é‡‡ï¿½?
-static uint16_t last_grid_collect_min = 0xFFFF;    // æ ‡å¿—ï¼šä¸Šä¸€æ¬¡æ‰§è¡Œå‘¨æœŸé‡‡é›†çš„åˆ†é’Ÿæˆ³ï¼Œé˜²æ­¢åœ¨åŒä¸€é‡‡é›†æ•´ç‚¹å¤šæ¬¡è§¦å‘
+static uint8_t dot_uploaded_mask[3] = {0};  // dotÄ£Ê½: ÒÑÉÏ±¨Ê±¼äµãÎ»Í¼(24Ğ¡Ê±Î»)
+static uint16_t dot_uploaded_day = 0xFFFF;  // dotÄ£Ê½: ÒÑÉÏ±¨Î»Í¼¶ÔÓ¦µÄRTCÈÕ(¿çÈÕÇåÁã)
+// valve_alarm_closed / valve_pre_alarm_order ÒÑÒÆ??g_* È«¾Ö (EEPROM ³Ö¾Ã?? OTA ÖØÆôºó¿É»Ö¸´), ??eeprom_config.h
+uint8_t voltage_low_power = 0;              // µÍµçÑ¹Ê¡µçÄ£?? ??:00/18:00ÉÏ±¨
+uint8_t fourG_user_off = 0;                 // ÓÃ»§Ö÷¶¯¹Ø»ú4G±êÖ¾(×èÖ¹do_wakeupÃ¤Ä¿»Ö¸´PD9)
+static uint8_t fourG_init_failed = 0;       // 4G×¢ÍøÊ§°Ü±êÖ¾(×èÖ¹do_sleep±£³Ö4G¹©µç, ÏÂ´ÎÉÏ±¨ÖÜÆÚÖØÊÔ)
+static uint8_t fourG_weak_signal = 0;       // ÈõĞÅºÅ¶Ïµç±êÖ¾(longÄ£Ê½ÏÂCSQ¹ıµÍ, ÔİÊ±°´ĞèÀäÆô¶¯)
+#define CSQ_WEAK_THRESHOLD  8               // CSQ<´ËÖµ´¥·¢¶ÏµçÊ¡µç(8¡Ö-97dBm)
+static uint8_t vlp_uploaded_this_hour = 0;  // µÍµçÑ¹Ä£?? ·ÀÖ¹Í¬Ò»Ğ¡Ê±ÖØ¸´ÉÏ±¨
+ThresholdResult_t last_realtime_alarm = THRESHOLD_OK;          // ÊµÊ±Ä£Ê½·ÀÖØ¸´±¨??
+static uint32_t g_ble_on_hhmmss = 0;                          // BLE¿ªÆôÊ±µÄRTCÊ±¼ä (HHMMSS), ÓÃÓÚ60sÎ´Á¬½Ó³¬Ê±×Ô¶¯¹Ø±Õ??
+static uint8_t g_is_minimal_wakeup = 0;            // ±êÖ¾£ºÊÇ·ñÎª´¿ÖÜÆÚ´«¸ĞÆ÷²É¼¯µÄ×î¼ò»½ĞÑ×´??
+uint8_t g_need_adc_sampling = 1;                   // ±êÖ¾£ºµ±Ç°ÖÜÆÚÊÇ·ñĞèÒª½øĞĞµç³ØµçÑ¹²É??
+static uint16_t last_grid_collect_min = 0xFFFF;    // ±êÖ¾£ºÉÏÒ»´ÎÖ´ĞĞÖÜÆÚ²É¼¯µÄ·ÖÖÓ´Á£¬·ÀÖ¹ÔÚÍ¬Ò»²É¼¯Õûµã¶à´Î´¥·¢
 
-// ==================== å®šæ—¶å¼€å…³é˜€ å½“æ—¥æ‰§è¡Œæ ‡å¿— ====================
-uint8_t timing_open_done_today  = 0;   // ä»Šæ—¥å·²æ‰§è¡Œå¼€é˜€
-uint8_t timing_close_done_today = 0;   // ä»Šæ—¥å·²æ‰§è¡Œå…³é˜€
-static uint8_t timing_last_reset_hour  = 0xFF;// ä¸Šæ¬¡é‡ç½®æ ‡å¿—çš„å°æ—¶(é˜²é‡å¤)
+// ==================== ¶¨Ê±¿ª¹Ø·§ µ±ÈÕÖ´ĞĞ±êÖ¾ ====================
+uint8_t timing_open_done_today  = 0;   // ½ñÈÕÒÑÖ´ĞĞ¿ª·§
+uint8_t timing_close_done_today = 0;   // ½ñÈÕÒÑÖ´ĞĞ¹Ø·§
+static uint8_t timing_last_reset_hour  = 0xFF;// ÉÏ´ÎÖØÖÃ±êÖ¾µÄĞ¡Ê±(·ÀÖØ¸´)
 
-// ==================== LCD å»¶æ—¶å…³é—­ ====================
-uint8_t  g_lcd_active     = 0;      // LCDå½“å‰æ˜¯å¦åœ¨æ˜¾ï¿½?(è¿è¡Œï¿½? åŒºåˆ«äºäº§å“å¼€å…³g_lcd_enabled)
-static uint32_t g_lcd_on_hhmmss = 0; // LCDè¢«ç‚¹äº®æ—¶çš„RTCæ—¶é—´ (HHMMSSæ ¼å¼)
-#define LCD_DISPLAY_TIMEOUT_SEC  60  // LCDæŒç»­æ˜¾ç¤ºç§’æ•°
+// ==================== LCD ÑÓÊ±¹Ø±Õ ====================
+uint8_t  g_lcd_active     = 0;      // LCDµ±Ç°ÊÇ·ñÔÚÏÔ??(ÔËĞĞ?? Çø±ğÓÚ²úÆ·¿ª¹Øg_lcd_enabled)
+static uint32_t g_lcd_on_hhmmss = 0; // LCD±»µãÁÁÊ±µÄRTCÊ±¼ä (HHMMSS¸ñÊ½)
+#define LCD_DISPLAY_TIMEOUT_SEC  60  // LCD³ÖĞøÏÔÊ¾ÃëÊı
 
 static uint32_t hhmmss_to_seconds(uint32_t hhmmss)
 {
@@ -114,7 +117,7 @@ void lcd_shutdown(void)
     slcd_disable();
 //    rcu_periph_clock_disable(RCU_SLCD);
 
-    // å°†SLCDå…¨éƒ¨COM/SEGå¼•è„šè®¾ä¸ºæ¨¡æ‹Ÿè¾“å…¥, ä¸æ— LCDäº§å“çŠ¶æ€å®Œå…¨ä¸€ï¿½?
+    // ½«SLCDÈ«²¿COM/SEGÒı½ÅÉèÎªÄ£ÄâÊäÈë, ÓëÎŞLCD²úÆ·×´Ì¬ÍêÈ«Ò»??
     rcu_periph_clock_enable(RCU_GPIOA);
     rcu_periph_clock_enable(RCU_GPIOB);
     rcu_periph_clock_enable(RCU_GPIOC);
@@ -140,19 +143,19 @@ static void lcd_check_timeout(void)
     if(now_sec >= on_sec)
         elapsed = now_sec - on_sec;
     else
-        elapsed = (86400 - on_sec) + now_sec;  // è·¨åˆï¿½?
+        elapsed = (86400 - on_sec) + now_sec;  // ¿çÎç??
     if(elapsed >= LCD_DISPLAY_TIMEOUT_SEC)
         lcd_shutdown();
 }
 
-// ==================== æ¨¡å—å…±äº« JSON ä¸ŠæŠ¥ç¼“å†² ====================
-// å¤šå¤„ pressure_status / temp_status / rtu_have ä¸ŠæŠ¥é¡ºåºä½¿ç”¨, å…±ç”¨ä¸€ï¿½?RAM, èŠ‚çœ ~1.7KB
-// æ¯ä¸ª publish å—å®Œæ•´æ‰§ï¿½?(ç”Ÿæˆæ—¶é—´æˆ³â†’snprintfâ†’PublishRawJson) åä¸‹ä¸€å—å†ï¿½? ä¸åµŒï¿½?
-static char s_status_json[384];   // ps_json / ts_json / rtu_json å…¬ç”¨ (4å­—æ®µrtuï¿½?80å­—èŠ‚)
-static char s_status_ts[32];      // ps_ts / ts_ts / rtu_ts / rt_ts å…¬ç”¨
+// ==================== Ä£¿é¹²Ïí JSON ÉÏ±¨»º³å ====================
+// ¶à´¦ pressure_status / temp_status / rtu_have ÉÏ±¨Ë³ĞòÊ¹ÓÃ, ¹²ÓÃÒ»??RAM, ½ÚÊ¡ ~1.7KB
+// Ã¿¸ö publish ¿éÍêÕûÖ´??(Éú³ÉÊ±¼ä´Á¡úsnprintf¡úPublishRawJson) ºóÏÂÒ»¿éÔÙ?? ²»Ç¶??
+static char s_status_json[384];   // ps_json / ts_json / rtu_json ¹«ÓÃ (4×Ö¶Îrtu??80×Ö½Ú)
+static char s_status_ts[32];      // ps_ts / ts_ts / rtu_ts / rt_ts ¹«ÓÃ
 
-// å•å­—æ®µçŠ¶æ€ä¸Šï¿½? ç”Ÿæˆæ—¶é—´ï¿½?ï¿½?æ„å»º [{"id","value","ts","remark"}] ï¿½?PublishRawJson
-// ï¿½?csq / pressure_status / temp_status ç­‰å•å­—æ®µä¸ŠæŠ¥å…±ç”¨
+// µ¥×Ö¶Î×´Ì¬ÉÏ?? Éú³ÉÊ±¼ä????¹¹½¨ [{"id","value","ts","remark"}] ??PublishRawJson
+// ??csq / pressure_status / temp_status µÈµ¥×Ö¶ÎÉÏ±¨¹²ÓÃ
 static void publish_status_field(const char *id, const char *value)
 {
     rtc_get_time_str(s_status_ts, sizeof(s_status_ts));
@@ -161,14 +164,14 @@ static void publish_status_field(const char *id, const char *value)
     EC801E_PublishRawJson(s_status_json);
 }
 
-// ä¼ æ„Ÿå™¨åœ¨ï¿½?ç¦»çº¿æ¶ˆæŠ–çŠ¶æ€æœº (è¿›æ°”ï¿½?raw + å‡ºæ°”ï¿½?raw2 å…±ç”¨; do_collect/do_realtime_check å¤ç”¨)
-// æ›´æ–° offline_cnt/offline_cnt2; æ¶ˆæŠ–é€šè¿‡åæ›´ï¿½?prev_online/prev_online2.
-// è¿”å›: 1 = å‘ç”Ÿç»æ¶ˆæŠ–ç¡®è®¤çš„çŠ¶æ€å˜ï¿½? 0 = æ— å˜ï¿½?
+// ´«¸ĞÆ÷ÔÚ??ÀëÏßÏû¶¶×´Ì¬»ú (½øÆø??raw + ³öÆø??raw2 ¹²ÓÃ; do_collect/do_realtime_check ¸´ÓÃ)
+// ¸üĞÂ offline_cnt/offline_cnt2; Ïû¶¶Í¨¹ıºó¸ü??prev_online/prev_online2.
+// ·µ»Ø: 1 = ·¢Éú¾­Ïû¶¶È·ÈÏµÄ×´Ì¬±ä?? 0 = ÎŞ±ä??
 static uint8_t sensor_debounce_update(uint8_t cur_online, uint8_t cur_online2)
 {
     uint8_t state_changed = 0;
 
-    // --- è¿›æ°”ï¿½?(raw, PT304D #2) ---
+    // --- ½øÆø??(raw, PT304D #2) ---
     if(cur_online && !g_sensor.prev_online)
     {
         g_sensor.offline_cnt = 0;
@@ -189,7 +192,7 @@ static uint8_t sensor_debounce_update(uint8_t cur_online, uint8_t cur_online2)
         g_sensor.online_cnt  = cur_online ? g_sensor.online_cnt : 0;
     }
 
-    // --- å‡ºæ°”ï¿½?(raw2, PT304D #1) --- ä»…åŒä¼ æ„Ÿå™¨æ—¶å‚ä¸æ¶ˆæŠ–
+    // --- ³öÆø??(raw2, PT304D #1) --- ½öË«´«¸ĞÆ÷Ê±²ÎÓëÏû¶¶
     if(g_sensor_count >= 2)
     {
         if(cur_online2 && !g_sensor.prev_online2)
@@ -215,7 +218,7 @@ static uint8_t sensor_debounce_update(uint8_t cur_online, uint8_t cur_online2)
 
     if(state_changed)
     {
-        // ä»…åœ¨æ¶ˆæŠ–é€šè¿‡åæ›´ï¿½?prev çŠ¶ï¿½?
+        // ½öÔÚÏû¶¶Í¨¹ıºó¸ü??prev ×´??
         if(cur_online != g_sensor.prev_online &&
            (cur_online  ? (g_sensor.online_cnt  >= SENSOR_ONLINE_DEBOUNCE)
                         : (g_sensor.offline_cnt >= SENSOR_OFFLINE_DEBOUNCE)))
@@ -237,10 +240,10 @@ static uint8_t sensor_debounce_update(uint8_t cur_online, uint8_t cur_online2)
     return state_changed;
 }
 
-// ==================== ç¡¬ä»¶æ¢å¤ ====================
+// ==================== Ó²¼ş»Ö¸´ ====================
 static void sys_init(void)
 {
-    /* é‡å®šä½ä¸­æ–­å‘é‡è¡¨ï¿½?App åŒºèµ·å€ (Bootloader è·³è½¬åå¿…é¡»è®¾ï¿½? Cortex-M23 æ”¯æŒ VTOR) */
+    /* ÖØ¶¨Î»ÖĞ¶ÏÏòÁ¿±í??App ÇøÆğÖ· (Bootloader Ìø×ªºó±ØĞëÉè?? Cortex-M23 Ö§³Ö VTOR) */
     SCB->VTOR = OTA_APP_ADDR;
 
     systick_config();
@@ -250,9 +253,9 @@ static void sys_init(void)
 
     gpio_init();
 
-    // PB5(V4G_EN 4Gç”µæº) ç«‹å³æ¢å¤: gpio_init å ODR=0 â†’ PB5=LOW
-    // è‹¥4G å”¤é†’å‰åœ¨çº¿(longæ¨¡å¼+çª—å£å†…), å¿…é¡»åœ¨æ­¤å¤„ç¬¬ä¸€æ—¶é—´æ‹‰é«˜, å¦åˆ™ 1s+ å»¶æ—¶ä¼šå¯¼è‡´4G å¤ä½
-    // å¼±ä¿¡å·æ¨¡å¼: 4Gå·²æ–­ç”µ, ä¸æ¢å¤PB5
+    // PB5(V4G_EN 4GµçÔ´) Á¢¼´»Ö¸´: gpio_init ºó ODR=0 ¡ú PB5=LOW
+    // Èô4G »½ĞÑÇ°ÔÚÏß(longÄ£Ê½+´°¿ÚÄÚ), ±ØĞëÔÚ´Ë´¦µÚÒ»Ê±¼äÀ­¸ß, ·ñÔò 1s+ ÑÓÊ±»áµ¼ÖÂ4G ¸´Î»
+    // ÈõĞÅºÅÄ£Ê½: 4GÒÑ¶Ïµç, ²»»Ö¸´PB5
     if(!voltage_low_power && !fourG_user_off && !fourG_init_failed && !fourG_weak_signal &&
        strcmp(g_window.pattern, "long") == 0 &&
        (config_is_active_window() || g_window.end_result == 1))
@@ -262,17 +265,17 @@ static void sys_init(void)
     IIC_Init();
 	IIC_GPIO_Init1();
     adc_bat_init();
-    // PB5 (V4G_EN 4Gç”µæº) çŠ¶æ€ç”±ä¸Šæ–¹æ¡ä»¶é€»è¾‘æ§åˆ¶ï¼Œæ­¤å¤„ä¸åšè¦†ï¿½?
-    // PA5 (M_SLP ç”µæœºä½¿èƒ½) ï¿½?valve_execute() æŒ‰éœ€æ§åˆ¶ï¼Œæ­¤å¤„ä¸æå‰å¼€ï¿½?
-    // PD4 (I2C ç”µå­å¼€ï¿½? é»˜è®¤ä¿æŒ LOW; ç”±å„é‡‡é›†ç‚¹æŒ‰éœ€ set/reset
+    // PB5 (V4G_EN 4GµçÔ´) ×´Ì¬ÓÉÉÏ·½Ìõ¼şÂß¼­¿ØÖÆ£¬´Ë´¦²»×ö¸²??
+    // PA5 (M_SLP µç»úÊ¹ÄÜ) ??valve_execute() °´Ğè¿ØÖÆ£¬´Ë´¦²»ÌáÇ°¿ª??
+    // PD4 (I2C µç×Ó¿ª?? Ä¬ÈÏ±£³Ö LOW; ÓÉ¸÷²É¼¯µã°´Ğè set/reset
 
-    debug_rx_init();   // USART0 RXä¸­æ–­ç¼“å†²åˆå§‹ï¿½?
+    debug_rx_init();   // USART0 RXÖĞ¶Ï»º³å³õÊ¼??
 }
 
-// ==================== å‰å‘å£°æ˜ ====================
+// ==================== Ç°ÏòÉùÃ÷ ====================
 static void ensure_full_init(void);
 
-// ==================== LCDä¿¡å·å¼ºåº¦æ›´æ–° (4Gåœ¨çº¿æ—¶è°ƒï¿½? åŒæ—¶ä¸ŠæŠ¥æœ¬ç«¯å¹³å°) ====================
+// ==================== LCDĞÅºÅÇ¿¶È¸üĞÂ (4GÔÚÏßÊ±µ÷?? Í¬Ê±ÉÏ±¨±¾¶ËÆ½Ì¨) ====================
 static void lcd_update_csq(void)
 {
     char csq_buf[8] = {0};
@@ -284,14 +287,24 @@ static void lcd_update_csq(void)
         uint8_t csq_val = (uint8_t)atoi(csq_buf);
         if(g_lcd_active) lcd_ui_update_signal(csq_val);
 
-        // ä¸ŠæŠ¥CSQåˆ°æœ¬ç«¯å¹³ï¿½?
+        // ÉÏ±¨CSQµ½±¾¶ËÆ½Ì¨
         publish_status_field("csq", csq_buf);
+    }
+
+    // ¸½¼ÓÕï¶Ï: LTEĞÅºÅÖÊÁ¿ + ÍøÂç×¢²á×´Ì¬
+    {
+        int rsrp = 0, sinr = 0;
+        uint8_t cereg = 0;
+        EC801E_QueryQCSQ(&rsrp, &sinr);
+        EC801E_QueryCEREG(&cereg);
+        printf_debug("[SM] Signal: CSQ=%s RSRP=%d SINR=%d CEREG=%d\r\n",
+                     csq_buf, rsrp, sinr, cereg);
     }
 }
 
-// ==================== 4G å…¬å…±æ¨¡å—: å”¤é†’/è¿æ¥ + æ¢å¤ ====================
-// ç¡®ä¿4Gæ¨¡å—å¯é€šä¿¡: å·²é€šç”µåˆ™å”¤é†’, æœªé€šç”µåˆ™å¼€æœºè¿æ¥
-// è¿”å›: 1=è¿æ¥æˆåŠŸ, 0=å¤±è´¥; *p_was_online: è°ƒç”¨å‰4Gæ˜¯å¦åœ¨çº¿(ç”¨äºfourG_restore)
+// ==================== 4G ¹«¹²Ä£¿é: »½ĞÑ/Á¬½Ó + »Ö¸´ ====================
+// È·±£4GÄ£¿é¿ÉÍ¨ĞÅ: ÒÑÍ¨µçÔò»½ĞÑ, Î´Í¨µçÔò¿ª»úÁ¬½Ó
+// ·µ»Ø: 1=Á¬½Ó³É¹¦, 0=Ê§°Ü; *p_was_online: µ÷ÓÃÇ°4GÊÇ·ñÔÚÏß(ÓÃÓÚfourG_restore)
 static int fourG_ensure_ready(int *p_was_online)
 {
     int was_online = (gpio_input_bit_get(GPIOB, GPIO_PIN_5) == SET);
@@ -322,10 +335,10 @@ static int fourG_ensure_ready(int *p_was_online)
     }
 }
 
-// æ¢å¤4Gåˆ°æ“ä½œåçŠ¶æ€:
-//   success=0 (è¿æ¥å¤±è´¥): æ— è®ºä¹‹å‰æ˜¯å¦åœ¨çº¿, ç»Ÿä¸€æ–­ç”µ (ä¸‹å‘¨æœŸé‡æ–°PowerOn)
-//   success=1 ä¸”ä¹‹å‰åœ¨çº¿: SetPSM(1) æ¢å¤é•¿è¿æ¥ä¼‘çœ 
-//   success=1 ä¸”ä¹‹å‰ç¦»çº¿: ä¸ŠæŠ¥ä¸‹çº¿åæ–­ç”µ (ä¸´æ—¶å¼€æœºå·²å®Œæˆä»»åŠ¡)
+// »Ö¸´4Gµ½²Ù×÷ºó×´Ì¬:
+//   success=0 (Á¬½ÓÊ§°Ü): ÎŞÂÛÖ®Ç°ÊÇ·ñÔÚÏß, Í³Ò»¶Ïµç (ÏÂÖÜÆÚÖØĞÂPowerOn)
+//   success=1 ÇÒÖ®Ç°ÔÚÏß: SetPSM(1) »Ö¸´³¤Á¬½ÓĞİÃß
+//   success=1 ÇÒÖ®Ç°ÀëÏß: ÉÏ±¨ÏÂÏßºó¶Ïµç (ÁÙÊ±¿ª»úÒÑÍê³ÉÈÎÎñ)
 static void fourG_restore(int was_online, int success)
 {
     if(!success)
@@ -335,7 +348,7 @@ static void fourG_restore(int was_online, int success)
     }
     if(was_online)
     {
-        // longæ¨¡å¼: æ£€æŸ¥ä¿¡å·å¼ºåº¦å†³å®šæ˜¯å¦ä¿æŒåœ¨çº¿
+        // longÄ£Ê½: ¼ì²éĞÅºÅÇ¿¶È¾ö¶¨ÊÇ·ñ±£³ÖÔÚÏß
         if(strcmp(g_window.pattern, "long") == 0)
         {
             char csq_buf[8] = {0};
@@ -361,10 +374,10 @@ static void fourG_restore(int was_online, int success)
     }
     else
     {
-        // ä¹‹å‰ç¦»çº¿(å†·å¯åŠ¨): æ£€æŸ¥æ˜¯å¦ä¸ºå¼±ä¿¡å·æ¢å¤åœºæ™¯
+        // Ö®Ç°ÀëÏß(ÀäÆô¶¯): ¼ì²éÊÇ·ñÎªÈõĞÅºÅ»Ö¸´³¡¾°
         if(fourG_weak_signal && strcmp(g_window.pattern, "long") == 0)
         {
-            // å¼±ä¿¡å·å†·å¯åŠ¨åæ£€æŸ¥ä¿¡å·æ˜¯å¦æ¢å¤
+            // ÈõĞÅºÅÀäÆô¶¯ºó¼ì²éĞÅºÅÊÇ·ñ»Ö¸´
             char csq_buf[8] = {0};
             if(EC801E_QueryCSQ(csq_buf, sizeof(csq_buf)) == EC_OK)
             {
@@ -377,7 +390,7 @@ static void fourG_restore(int was_online, int success)
                     return;
                 }
             }
-            // ä»å¼±: æ–­ç”µ
+            // ÈÔÈõ: ¶Ïµç
             printf_debug("[SM] Still weak signal, power off\r\n");
         }
         report_4g_power_state(0);
@@ -385,18 +398,18 @@ static void fourG_restore(int was_online, int success)
     }
 }
 
-// ==================== å¼±ä¿¡å·æ£€æŸ¥+å†³ç­– (do_upload/do_downlink æ”¶å°¾ä¸“ç”¨) ====================
-// ä¸ŠæŠ¥/ä¸‹è¡Œå¤„ç†å®Œæ¯•åè°ƒç”¨, å†³å®š4Gå»ç•™
-// è¿”å›: 1=ä¿¡å·OK(è°ƒç”¨è€…åº”SetPSM), 0=ä¿¡å·å¼±(å†…éƒ¨å·²æ–­ç”µ)
+// ==================== ÈõĞÅºÅ¼ì²é+¾ö²ß (do_upload/do_downlink ÊÕÎ²×¨ÓÃ) ====================
+// ÉÏ±¨/ÏÂĞĞ´¦ÀíÍê±Ïºóµ÷ÓÃ, ¾ö¶¨4GÈ¥Áô
+// ·µ»Ø: 1=ĞÅºÅOK(µ÷ÓÃÕßÓ¦SetPSM), 0=ĞÅºÅÈõ(ÄÚ²¿ÒÑ¶Ïµç)
 static int fourG_signal_check_and_decide(void)
 {
     if(strcmp(g_window.pattern, "long") != 0)
-        return 1;  // élongæ¨¡å¼ä¸å‚ä¸æ­¤é€»è¾‘
+        return 1;  // ·ÇlongÄ£Ê½²»²ÎÓë´ËÂß¼­
 
     char csq_buf[8] = {0};
     if(EC801E_QueryCSQ(csq_buf, sizeof(csq_buf)) != EC_OK)
     {
-        // æŸ¥è¯¢å¤±è´¥è§†ä¸ºå¼±ä¿¡å·
+        // ²éÑ¯Ê§°ÜÊÓÎªÈõĞÅºÅ
         printf_debug("[SM] CSQ query failed, power off 4G\r\n");
         fourG_weak_signal = 1;
         report_4g_power_state(0);
@@ -406,28 +419,31 @@ static int fourG_signal_check_and_decide(void)
 
     uint8_t csq_val = (uint8_t)atoi(csq_buf);
     if(csq_val < CSQ_WEAK_THRESHOLD || csq_val == 99)
+
     {
+
         printf_debug("[SM] CSQ=%d < %d, 4G power off (weak signal)\r\n", csq_val, CSQ_WEAK_THRESHOLD);
+
         fourG_weak_signal = 1;
         report_4g_power_state(0);
         EC801E_PowerOff();
         return 0;
     }
 
-    // ä¿¡å·æ¢å¤
+    // ĞÅºÅ»Ö¸´
     if(fourG_weak_signal)
     {
-        printf_debug("[SM] CSQ=%d, signal recovered, restoring long mode\r\n", csq_val);
+        printf_debug("[SM] CSQ=%d, signal recovered\r\n", csq_val);
         fourG_weak_signal = 0;
     }
     return 1;
 }
 
-// ==================== å…¬å…±åŠŸèƒ½æ¨¡å— ====================
+// ==================== ¹«¹²¹¦ÄÜÄ£¿é ====================
 
-// ç»Ÿä¸€ADCç”µå‹é‡‡æ ·: è¯»å–â†’æœ‰æ•ˆæ€§åˆ¤æ–­â†’å†™å…¥g_sensor.voltage
-// update_baseline: 1=åŒæ—¶æ›´æ–°last_normal_voltage(æ­£å¸¸é‡‡é›†), 0=ä»…æ›´æ–°voltage(æŠ¥è­¦é‡é‡‡ç­‰)
-// fallback: ADCæ— æ•ˆæ—¶çš„å›é€€å€¼ (é€šå¸¸ä¸ºg_sensor.last_normal_voltage, é¦–æ¬¡å¯åŠ¨ç”¨3.6f)
+// Í³Ò»ADCµçÑ¹²ÉÑù: ¶ÁÈ¡¡úÓĞĞ§ĞÔÅĞ¶Ï¡úĞ´Èëg_sensor.voltage
+// update_baseline: 1=Í¬Ê±¸üĞÂlast_normal_voltage(Õı³£²É¼¯), 0=½ö¸üĞÂvoltage(±¨¾¯ÖØ²ÉµÈ)
+// fallback: ADCÎŞĞ§Ê±µÄ»ØÍËÖµ (Í¨³£Îªg_sensor.last_normal_voltage, Ê×´ÎÆô¶¯ÓÃ3.6f)
 static void sensor_sample_voltage(uint8_t update_baseline, float fallback)
 {
     float v_now = adc_bat_read_voltage();
@@ -441,9 +457,9 @@ static void sensor_sample_voltage(uint8_t update_baseline, float fallback)
         g_sensor.voltage = fallback;
 }
 
-// å¼‚å¸¸è‡ªåŠ¨å…³é˜€: æ ¹æ®ç­–ç•¥å†³å®šæ˜¯å¦å…³é˜€, ç‹¬ç«‹äº4Gé€šä¿¡çŠ¶æ€
-// è¿”å›: é˜€é—¨æ‰§è¡Œç»“æœå­—ç¬¦ä¸²(å·²å…³é˜€), NULL(æœªå…³é˜€)
-// å®‰å…¨è®¾è®¡: æ­¤å‡½æ•°å†…éƒ¨åˆå§‹åŒ–IIC/ç”µæœº, ç¡®ä¿ä»»ä½•ä¸Šä¸‹æ–‡å‡å¯å®‰å…¨è°ƒç”¨
+// Òì³£×Ô¶¯¹Ø·§: ¸ù¾İ²ßÂÔ¾ö¶¨ÊÇ·ñ¹Ø·§, ¶ÀÁ¢ÓÚ4GÍ¨ĞÅ×´Ì¬
+// ·µ»Ø: ·§ÃÅÖ´ĞĞ½á¹û×Ö·û´®(ÒÑ¹Ø·§), NULL(Î´¹Ø·§)
+// °²È«Éè¼Æ: ´Ëº¯ÊıÄÚ²¿³õÊ¼»¯IIC/µç»ú, È·±£ÈÎºÎÉÏÏÂÎÄ¾ù¿É°²È«µ÷ÓÃ
 const char* alarm_try_close_valve(ThresholdResult_t result)
 {
     AbnormalClose_t policy = abnormal_from_str(g_abnormal_close);
@@ -462,25 +478,37 @@ const char* alarm_try_close_valve(ThresholdResult_t result)
     return NULL;
 }
 
-// ç”¨æˆ·ç«¯MQTTä¸ŠæŠ¥ (id=1, LYæ ¼å¼åŒé€šé“): è¿æ¥â†’å‘é€â†’æ–­å¼€
+// ÓÃ»§¶ËMQTTÉÏ±¨ (id=1, LY¸ñÊ½Ë«Í¨µÀ): Á¬½Ó¡ú·¢ËÍ¡ú¶Ï¿ª (º¬1´ÎÖØÊÔ)
 static void user_mqtt_try_publish(void)
 {
-    if(EC801E_UserMqtt_IsConfigured())
+    if(!EC801E_UserMqtt_IsConfigured())
+        return;
+
+    trea_delay_ms(500);
+    if(EC801E_UserMqtt_Connect() != EC_OK)
     {
-        trea_delay_ms(500);
-        if(EC801E_UserMqtt_Connect() == EC_OK)
+        printf_debug("[SM] UserMqtt: connect failed, retry once...\r\n");
+        trea_delay_ms(1000);
+        if(EC801E_UserMqtt_Connect() != EC_OK)
         {
-            trea_delay_ms(300);
-            EC801E_UserMqtt_PublishSensorData(&g_sensor.raw, &g_sensor.raw2, g_sensor.voltage);
-            trea_delay_ms(500);
-            EC801E_UserMqtt_Disconnect();
+            printf_debug("[SM] UserMqtt: retry failed, skip publish\r\n");
+            return;
         }
     }
+
+    trea_delay_ms(300);
+    if(EC801E_UserMqtt_PublishSensorData(&g_sensor.raw, &g_sensor.raw2, g_sensor.voltage) != EC_OK)
+        printf_debug("[SM] UserMqtt: publish sensor data failed\r\n");
+    else
+        printf_debug("[SM] UserMqtt: publish OK\r\n");
+
+    trea_delay_ms(500);
+    EC801E_UserMqtt_Disconnect();
 }
 
-// ==================== çŠ¶æ€ä¸ŠæŠ¥å…¬å…±æ¨¡å— ====================
-// ä¸ŠæŠ¥è¿›æ°”ç«¯+å‡ºæ°”ç«¯çš„ pressure_status / temp_status
-// last_p1/last_p2: ä¸Šæ¬¡å‹åŠ›å€¼(ç”¨äºçªå˜æ£€æµ‹)
+// ==================== ×´Ì¬ÉÏ±¨¹«¹²Ä£¿é ====================
+// ÉÏ±¨½øÆø¶Ë+³öÆø¶ËµÄ pressure_status / temp_status
+// last_p1/last_p2: ÉÏ´ÎÑ¹Á¦Öµ(ÓÃÓÚÍ»±ä¼ì²â)
 static void publish_all_status(float last_p1, float last_p2)
 {
     PressureStatus_t ps = threshold_get_pressure_status(g_sensor.raw.pressure, last_p1);
@@ -498,10 +526,11 @@ static void publish_all_status(float last_p1, float last_p2)
     }
 }
 
-// ==================== å®šæ—¶é˜€é—¨: æ‰§è¡Œ+ä¸ŠæŠ¥(å…¬å…±å‡½æ•°) ====================
-// action: "open" æˆ– "close"
-// æ‰§è¡Œé˜€é—¨åŠ¨ä½œ, å”¤é†’4Gä¸ŠæŠ¥ valve_control + valve_last_order, æ¢å¤PSM
-static void vtiming_execute_and_report(const char *action)
+// ==================== ¶¨Ê±·§ÃÅ: Ö´ĞĞ+ÉÏ±¨(¹«¹²º¯Êı) ====================
+// action: "open" »ò "close"
+// keep_online=0: Ö´ĞĞºó°´ fourG_ensure_ready/restore »Ö¸´Ô­4G×´Ì¬ (Õı³£Â·¾¶, VLPµÍµçÁ¿ÏÂÔÊĞíÁÙÊ±¿ª4GÉÏ±¨)
+// keep_online=1: ×èÈûÁ÷³Ì(ÉÏ´«/ÏÂĞĞ)ÖĞµ÷ÓÃ, 4GÒÑÔÚÏß, Ö»»½ĞÑ+È·ÈÏÁ¬½Ó+·¢²¼, ²»¸Ä±ä4G»á»°×´Ì¬
+static void vtiming_execute_and_report(const char *action, uint8_t keep_online)
 {
     ensure_full_init();
     IIC_Init();
@@ -509,14 +538,72 @@ static void vtiming_execute_and_report(const char *action)
     const char *vr = valve_execute(action, 1);
     printf_debug("[SM] VTIMING: %s result=%s\r\n", action, vr);
 
-    int was_online;
-    int ec_ok = fourG_ensure_ready(&was_online);
-    if(ec_ok)
-        EC801E_PublishValveStatus(vr, g_valve_last_order);
-    fourG_restore(was_online, ec_ok);
+    if(keep_online)
+    {
+        EC801E_Wakeup();
+        if(EC801E_EnsureConnected() == EC_OK)
+            EC801E_PublishValveStatus(vr, g_valve_last_order);
+    }
+    else
+    {
+        int was_online;
+        int ec_ok = fourG_ensure_ready(&was_online);
+        if(ec_ok)
+            EC801E_PublishValveStatus(vr, g_valve_last_order);
+        fourG_restore(was_online, ec_ok);
+    }
 }
 
-// ==================== å®æ—¶è·¯å¾„: é…ç½®å”¤é†’ï¿½?æ·±ä¼‘ï¿½?====================
+// ==================== ¶¨Ê±·§ÃÅ: ÖÜÆÚ¼ì²é(×èÈûÁ÷³ÌÄÚÒ²¿Éµ÷ÓÃ) ====================
+// ¿çÈÕÖØÖÃ + ¿ª/¹Ø·§ ¡À30s ÅĞ¶Ï; keep_online Í¸´«¸ø vtiming_execute_and_report
+void vtiming_check(uint8_t keep_online)
+{
+    if(!g_valve_timing.enabled)
+        return;
+
+    uint32_t now_hhmmss = rtc_get_hhmmss();
+    uint32_t now_sec = hhmmss_to_seconds(now_hhmmss);
+    uint8_t cur_hour = (uint8_t)(now_hhmmss / 10000);
+
+    // ÎçÒ¹ÖØÖÃµ±ÈÕÖ´ĞĞ±êÖ¾ (00:00~00:59, ÇÒÎ´ÖØÖÃ¹ı)
+    if(cur_hour == 0 && timing_last_reset_hour != 0)
+    {
+        timing_open_done_today  = 0;
+        timing_close_done_today = 0;
+        timing_last_reset_hour  = 0;
+        printf_debug("[SM] VTIMING: daily flags reset\r\n");
+    }
+    else if(cur_hour != 0)
+        timing_last_reset_hour = cur_hour;
+
+    // ¼ì²é¿ª·§Ê±¼ä (Èİ²î¡À30Ãë)
+    if(!timing_open_done_today && g_valve_timing.open_time > 0)
+    {
+        uint32_t tgt_sec = hhmmss_to_seconds(g_valve_timing.open_time);
+        int32_t diff = (int32_t)now_sec - (int32_t)tgt_sec;
+        if(diff >= 0 && diff <= 30)
+        {
+            printf_debug("[SM] VTIMING: OPEN triggered at %06lu\r\n", now_hhmmss);
+            vtiming_execute_and_report("open", keep_online);
+            timing_open_done_today = 1;
+        }
+    }
+
+    // ¼ì²é¹Ø·§Ê±¼ä (Èİ²î¡À30Ãë)
+    if(!timing_close_done_today && g_valve_timing.close_time > 0)
+    {
+        uint32_t tgt_sec = hhmmss_to_seconds(g_valve_timing.close_time);
+        int32_t diff = (int32_t)now_sec - (int32_t)tgt_sec;
+        if(diff >= 0 && diff <= 30)
+        {
+            printf_debug("[SM] VTIMING: CLOSE triggered at %06lu\r\n", now_hhmmss);
+            vtiming_execute_and_report("close", keep_online);
+            timing_close_done_today = 1;
+        }
+    }
+}
+
+// ==================== ÊµÊ±Â·¾¶: ÅäÖÃ»½ĞÑ??ÉîĞİ??====================
 static void realtime_enter_sleep(void)
 {
     uint8_t lpuart_enabled = 0;
@@ -525,24 +612,26 @@ static void realtime_enter_sleep(void)
     rtc_alarm_wakeup_init();
     rtc_set_next_alarm_sec(g_real_frequency);
 
-    // 4Gåœ¨çº¿æ—¶ä½¿èƒ½LPUARTå”¤é†’ (æ¥æ”¶å¹³å°ä¸‹å‘, å¼±ä¿¡å·æ–­ç”µæ—¶ä¸å¯ç”¨)
+    // 4GÔÚÏßÊ±Ê¹ÄÜLPUART»½ĞÑ + RI»½ĞÑ (½ÓÊÕÆ½Ì¨ÏÂ·¢, ÈõĞÅºÅ¶ÏµçÊ±²»ÆôÓÃ)
     if(!voltage_low_power && !fourG_user_off && !fourG_init_failed && !fourG_weak_signal &&
        strcmp(g_window.pattern, "long") == 0 &&
        (config_is_active_window() || g_window.end_result == 1))
     {
         com_lpuart_init();
         lpuart_wakeup_init();
+        ri_exti_init();
         lpuart_enabled = 1;
     }
 
     button_exti_init();
+    if(g_bt_on) ble_exti_init();
     lpuart_dma_rx_disable();
     enter_deepsleep_mode(lpuart_enabled);
 }
 
-// ==================== å®æ—¶é‡‡é›†æœ€å°åŒ–å”¤é†’è·¯å¾„ ====================
-// ä»…åˆå§‹åŒ– SysTick + I2C + PD4, é‡‡é›†ä¼ æ„Ÿï¿½? åˆ¤æ–­å¼‚å¸¸
-// å¼‚å¸¸æ—¶ç«‹å³é‡é‡‡ç¡®ï¿½? ç¡®è®¤åå¯4Gä¸ŠæŠ¥; æ­£å¸¸åˆ™ç›´æ¥å›ï¿½?
+// ==================== ÊµÊ±²É¼¯×îĞ¡»¯»½ĞÑÂ·¾¶ ====================
+// ½ö³õÊ¼»¯ SysTick + I2C + PD4, ²É¼¯´«¸Ğ?? ÅĞ¶ÏÒì³£
+// Òì³£Ê±Á¢¼´ÖØ²ÉÈ·?? È·ÈÏºóÆô4GÉÏ±¨; Õı³£ÔòÖ±½Ó»Ø??
 // ==================== ==================== ====================
 static void do_realtime_check(void)
 {
@@ -551,21 +640,21 @@ static void do_realtime_check(void)
     uint8_t still_abnormal = 1;
     uint8_t i;
 
-    // === æœ€å°åˆå§‹åŒ– (æ—¶é’Ÿæ¢å¤) ===
+    // === ×îĞ¡³õÊ¼»¯ (Ê±ÖÓ»Ö¸´) ===
     system_wakeup_reinit();
 
-    // è½¯ä»¶çœ‹é—¨ï¿½? å®æ—¶é‡‡é›†è·¯å¾„ï¿½?do_sleep å¾ªç¯ç›´æ¥è°ƒç”¨(ä¸ç»ä¸»å¾ªç¯åˆ†ï¿½?, éœ€ç‹¬ç«‹ä½¿èƒ½
-    // SysTick å·²ç”± system_wakeup_reinit é‡æ–°é…ç½®; å›ç¡ï¿½?enter_deepsleep_mode ä¼šå…³ï¿½?
+    // Èí¼ş¿´ÃÅ?? ÊµÊ±²É¼¯Â·¾¶??do_sleep Ñ­»·Ö±½Óµ÷ÓÃ(²»¾­Ö÷Ñ­»··Ö??, Ğè¶ÀÁ¢Ê¹ÄÜ
+    // SysTick ÒÑÓÉ system_wakeup_reinit ÖØĞÂÅäÖÃ; »ØË¯??enter_deepsleep_mode »á¹Ø??
     swdt_enable(SWDT_TIMEOUT_MS);
 
-    // === é‡‡é›† (ä»…ä¼ æ„Ÿå™¨, ä¸è¯»ADC; PB5/IIC ï¿½?CollectAll å†…éƒ¨ç®¡ç†) ===
+    // === ²É¼¯ (½ö´«¸ĞÆ÷, ²»¶ÁADC; PD4/IIC ??CollectAll ÄÚ²¿¹ÜÀí) ===
     PT304D_CollectAll((g_sensor_count >= 2) ? &g_sensor.raw2 : NULL, &g_sensor.raw);
 
-    // === LCDè¶…æ—¶æ£€ï¿½?+ é‡‡æ ·å‘¨æœŸåˆ·æ–°æ˜¾ç¤º ===
+    // === LCD³¬Ê±¼ì??+ ²ÉÑùÖÜÆÚË¢ĞÂÏÔÊ¾ ===
     lcd_check_timeout();
     if(g_lcd_active) lcd_ui_refresh(&g_sensor.raw, &g_sensor.raw2, g_sensor.voltage);
 
-    // === ä¼ æ„Ÿå™¨åœ¨ï¿½?ç¦»çº¿çŠ¶æ€å˜åŒ–æ£€ï¿½?(å¸¦æ¶ˆï¿½? è¿›æ°”ï¿½?å‡ºæ°”ï¿½? ===
+    // === ´«¸ĞÆ÷ÔÚ??ÀëÏß×´Ì¬±ä»¯¼ì??(´øÏû?? ½øÆø??³öÆø?? ===
     {
         uint8_t cur_online  = (g_sensor.raw.err  == PT304D_OK) ? 1 : 0;
         uint8_t cur_online2 = (g_sensor.raw2.err == PT304D_OK) ? 1 : 0;
@@ -584,7 +673,7 @@ static void do_realtime_check(void)
                              g_real_frequency);
             }
 
-            // ç«‹å³4Gä¸ŠæŠ¥
+            // Á¢¼´4GÉÏ±¨
             {
                 int was_online;
                 int ec_ok = fourG_ensure_ready(&was_online);
@@ -596,7 +685,7 @@ static void do_realtime_check(void)
                 fourG_restore(was_online, ec_ok);
             }
 
-            // è¿›æ°”ç«¯ç¦»çº¿æ—¶è·³è¿‡é˜ˆå€¼æ£€ï¿½? ç›´æ¥å›ç¡
+            // ½øÆø¶ËÀëÏßÊ±Ìø¹ıãĞÖµ¼ì?? Ö±½Ó»ØË¯
             if(!cur_online)
             {
                 g_sensor.last_pressure_realtime = g_sensor.raw.pressure;
@@ -607,25 +696,25 @@ static void do_realtime_check(void)
         }
         else if(!cur_online)
         {
-            // æŒç»­ç¦»çº¿(å«æ¶ˆæŠ–æœŸï¿½?, ä¸é‡å¤ä¸Šï¿½? ç›´æ¥å›ç¡
+            // ³ÖĞøÀëÏß(º¬Ïû¶¶ÆÚ??, ²»ÖØ¸´ÉÏ?? Ö±½Ó»ØË¯
             realtime_enter_sleep();
             return;
         }
     }
 
-    // === ä¸‰é‡å¼‚å¸¸æ£€ï¿½?===
-    // å®æ—¶è·¯å¾„ä¸é‡‡ ADC: ä¼ å“¨ï¿½?-1.0f (é…åˆ check_voltage=0 + threshold_check å®ˆå«) æ˜ç¡®"æœªé‡‡é›†ç”µï¿½?
-    // skip_mutation=1: æ¢å¤åˆ¤å®šæ—¶è·³è¿‡çªå˜æ£€æµ‹, é¿å…å‹åŠ›å›å½’æ­£å¸¸æ—¶çš„å˜åŒ–é‡è§¦å‘è™šå‡çªå˜æŠ¥è­¦
+    // === ÈıÖØÒì³£¼ì??===
+    // ÊµÊ±Â·¾¶²»²É ADC: ´«ÉÚ??-1.0f (ÅäºÏ check_voltage=0 + threshold_check ÊØÎÀ) Ã÷È·"Î´²É¼¯µç??
+    // skip_mutation=1: »Ö¸´ÅĞ¶¨Ê±Ìø¹ıÍ»±ä¼ì²â, ±ÜÃâÑ¹Á¦»Ø¹éÕı³£Ê±µÄ±ä»¯Á¿´¥·¢Ğé¼ÙÍ»±ä±¨¾¯
     result     = threshold_check(g_sensor.raw.pressure, g_sensor.raw.temperature, -1.0f, g_sensor.last_pressure_realtime, 0, 1);
     if(result == THRESHOLD_OK && g_sensor_count >= 2 && g_sensor.raw2.err == PT304D_OK)
         result = threshold_check2(g_sensor.raw2.pressure, g_sensor.raw2.temperature, g_sensor.last_pressure_realtime2, 1);
     sensor_err = (g_sensor.raw.err != PT304D_OK);
 
-    // === æ­£å¸¸ ï¿½?æ£€æŸ¥æŠ¥è­¦æ¢ï¿½?ï¿½?æ›´æ–°å‹åŠ› ï¿½?ç›´æ¥å›ç¡ ===
+    // === Õı³£ ??¼ì²é±¨¾¯»Ö????¸üĞÂÑ¹Á¦ ??Ö±½Ó»ØË¯ ===
     if(result == THRESHOLD_OK && !sensor_err)
     {
-        // æŠ¥è­¦æ¢å¤: ä¹‹å‰è‡ªåŠ¨å…³é˜€, ç°ä¼ æ„Ÿå™¨æ­£å¸¸ ï¿½?æ¢å¤é˜€é—¨åˆ°å…³é˜€å‰çŠ¶ï¿½?
-        // (ï¿½?do_collect æœ«å°¾æ¢å¤é€»è¾‘ä¸€ï¿½? å®æ—¶æ¨¡å¼æ— éœ€ç­‰å¾…ä¸‹ä¸€é‡‡é›†å‘¨æœŸ)
+        // ±¨¾¯»Ö¸´: Ö®Ç°×Ô¶¯¹Ø·§, ÏÖ´«¸ĞÆ÷Õı³£ ??»Ö¸´·§ÃÅµ½¹Ø·§Ç°×´??
+        // (??do_collect Ä©Î²»Ö¸´Âß¼­Ò»?? ÊµÊ±Ä£Ê½ÎŞĞèµÈ´ıÏÂÒ»²É¼¯ÖÜÆÚ)
         if(g_valve_alarm_closed && !voltage_low_power)
         {
             const char *restore_action = (g_valve_pre_alarm_order == 1) ? "open" : "close";
@@ -652,7 +741,7 @@ static void do_realtime_check(void)
         }
         else if(last_realtime_alarm != THRESHOLD_OK)
         {
-            // ä¹‹å‰æœ‰æŠ¥è­¦ä½†æœªå…³é˜€(ç­–ç•¥ä¸ºnoneç­‰), ç°æ¢å¤æ­£å¸¸, éœ€ä¸ŠæŠ¥æ¢å¤çŠ¶æ€
+            // Ö®Ç°ÓĞ±¨¾¯µ«Î´¹Ø·§(²ßÂÔÎªnoneµÈ), ÏÖ»Ö¸´Õı³£, ĞèÉÏ±¨»Ö¸´×´Ì¬
             ensure_full_init();
             int was_online;
             int ec_ok = fourG_ensure_ready(&was_online);
@@ -665,10 +754,10 @@ static void do_realtime_check(void)
         }
 
         if(last_realtime_alarm != THRESHOLD_OK)
-            last_realtime_alarm = THRESHOLD_OK;   // æ¢å¤æ­£å¸¸, æ¸…é™¤é˜²é‡å¤æ ‡ï¿½?
+            last_realtime_alarm = THRESHOLD_OK;   // »Ö¸´Õı³£, Çå³ı·ÀÖØ¸´±ê??
 
-        // é™æ€é™å€¼æ­£å¸¸å, è¡¥å……çªå˜æ£€æµ‹ (skip_mutation=0)
-        // æ¢å¤ä¸ŠæŠ¥å·²å®Œæˆ, æ­¤å¤„ä»…æ£€æµ‹æ˜¯å¦å­˜åœ¨æ–°çš„çº¯çªå˜å¼‚å¸¸
+        // ¾²Ì¬ÏŞÖµÕı³£ºó, ²¹³äÍ»±ä¼ì²â (skip_mutation=0)
+        // »Ö¸´ÉÏ±¨ÒÑÍê³É, ´Ë´¦½ö¼ì²âÊÇ·ñ´æÔÚĞÂµÄ´¿Í»±äÒì³£
         result = threshold_check(g_sensor.raw.pressure, g_sensor.raw.temperature, -1.0f, g_sensor.last_pressure_realtime, 0, 0);
         if(result == THRESHOLD_OK && g_sensor_count >= 2 && g_sensor.raw2.err == PT304D_OK)
             result = threshold_check2(g_sensor.raw2.pressure, g_sensor.raw2.temperature, g_sensor.last_pressure_realtime2, 0);
@@ -681,10 +770,10 @@ static void do_realtime_check(void)
             realtime_enter_sleep();
             return;
         }
-        // çªå˜å¼‚å¸¸ â†’ ç»§ç»­å¾€ä¸‹èµ°å¼‚å¸¸ç¡®è®¤æµç¨‹
+        // Í»±äÒì³£ ¡ú ¼ÌĞøÍùÏÂ×ßÒì³£È·ÈÏÁ÷³Ì
     }
 
-    // === å¼‚å¸¸ â†’ é˜²é‡å¤: åŒç±»å¼‚å¸¸ä¸é‡å¤ä¸ŠæŠ¥ ===
+    // === Òì³£ ¡ú ·ÀÖØ¸´: Í¬ÀàÒì³£²»ÖØ¸´ÉÏ±¨ ===
     if(result == last_realtime_alarm && result != THRESHOLD_OK)
     {
         g_sensor.last_pressure_realtime = g_sensor.raw.pressure;
@@ -693,7 +782,7 @@ static void do_realtime_check(void)
         return;
     }
 
-    // === å¼‚å¸¸ ï¿½?ç«‹å³é‡é‡‡ç¡®è®¤ (3ï¿½? ===
+    // === Òì³£ ??Á¢¼´ÖØ²ÉÈ·ÈÏ (3?? ===
     for(i = 0; i < APP_ALARM_RECHECK_COUNT; i++)
     {
         trea_delay_ms(APP_ALARM_RECHECK_DELAY_MS);
@@ -713,17 +802,17 @@ static void do_realtime_check(void)
 
     if(!still_abnormal)
     {
-        // å¶å‘æŠ–åŠ¨ ï¿½?å›ç¡
+        // Å¼·¢¶¶¶¯ ??»ØË¯
         g_sensor.last_pressure_realtime = g_sensor.raw.pressure;
         g_sensor.last_pressure_realtime2 = g_sensor.raw2.pressure;
         realtime_enter_sleep();
         return;
     }
 
-    // === ç¡®è®¤å¼‚å¸¸ ï¿½?è®°å½•é˜²é‡å¤æ ‡ï¿½?===
+    // === È·ÈÏÒì³£ ??¼ÇÂ¼·ÀÖØ¸´±ê??===
     last_realtime_alarm = result;
 
-    // === å¼‚å¸¸å…³é˜€ (å®‰å…¨åŠ¨ä½œ, ä¸ä¾èµ–4Gé€šä¿¡) ===
+    // === Òì³£¹Ø·§ (°²È«¶¯×÷, ²»ÒÀÀµ4GÍ¨ĞÅ) ===
     {
         const char *alarm_type = threshold_alarm_type_str(result);
         if(sensor_err && result == THRESHOLD_OK)
@@ -736,7 +825,7 @@ static void do_realtime_check(void)
 
         const char *vr = alarm_try_close_valve(result);
 
-        // === 4Gä¸ŠæŠ¥ (æŠ¥è­¦çŠ¶æ€+å…³é˜€ç»“æœ) ===
+        // === 4GÉÏ±¨ (±¨¾¯×´Ì¬+¹Ø·§½á¹û) ===
         int was_online;
         int ec_ok = fourG_ensure_ready(&was_online);
         if(ec_ok)
@@ -746,17 +835,20 @@ static void do_realtime_check(void)
                 publish_sensor_status();
             if(vr)
                 EC801E_PublishValveStatus(vr, g_valve_last_order);
+
+            // ÓÃ»§¶ËMQTTÍ¬²½ÉÏ±¨±¨¾¯Êı¾İ
+            user_mqtt_try_publish();
         }
         fourG_restore(was_online, ec_ok);
     }
 
-    // === å›ç¡ ===
+    // === »ØË¯ ===
     g_sensor.last_pressure_realtime = g_sensor.raw.pressure;
     g_sensor.last_pressure_realtime2 = g_sensor.raw2.pressure;
     realtime_enter_sleep();
 }
 
-// ==================== è¿›å…¥ä¼‘çœ  ====================
+// ==================== ½øÈëĞİÃß ====================
 static void do_sleep(void)
 {
     int fourG_keep_on = 0;
@@ -770,35 +862,35 @@ static void do_sleep(void)
     gpio_bit_reset(GPIOC, GPIO_PIN_4);
     gpio_bit_reset(GPIOC, GPIO_PIN_5);
     gpio_bit_reset(GPIOB, GPIO_PIN_8);
-    // PB9 = SLCD COM3, ä¸å…³ï¿½?
-    // PB6/PB7(I2Cæ€»çº¿2 SCL/SDA): ä¸ä¸»åŠ¨æ‹‰ä½, ç”± gpio_enter_low_power åˆ‡ Analog
-    // é¿å…åœ¨ä¼ æ„Ÿå™¨æ–­ç”µè¿‡ç¨‹ä¸­äº§ç”Ÿå¼‚å¸¸ I2C ä¿¡å·å¯¼è‡´ä¸‹æ¬¡ä¸Šç”µåæ€»çº¿é”æ­»
+    // PB9 = SLCD COM3, ²»¹Ø??
+    // PB6/PB7(I2C×ÜÏß2 SCL/SDA): ²»Ö÷¶¯À­µÍ, ÓÉ gpio_enter_low_power ÇĞ Analog
+    // ±ÜÃâÔÚ´«¸ĞÆ÷¶Ïµç¹ı³ÌÖĞ²úÉúÒì³£ I2C ĞÅºÅµ¼ÖÂÏÂ´ÎÉÏµçºó×ÜÏßËøËÀ
 
     gpio_bit_reset(GPIOA, GPIO_PIN_6);
     gpio_bit_reset(GPIOA, GPIO_PIN_7);
 
-    // 4Gç”µæºç®¡ç†: æ ¹æ®window patternå†³å®šPB5(V4G_EN)çŠ¶ï¿½?
-    // ä½ç”µå‹çœç”µæ¨¡ï¿½? å¼ºåˆ¶4Gæ–­ç”µ
+    // 4GµçÔ´¹ÜÀí: ¸ù¾İwindow pattern¾ö¶¨PB5(V4G_EN)×´??
+    // µÍµçÑ¹Ê¡µçÄ£?? Ç¿ÖÆ4G¶Ïµç
     if(voltage_low_power)
     {
         gpio_bit_reset(GPIOB, GPIO_PIN_5);
     }
     else if(strcmp(g_window.pattern, "long") == 0)
     {
-        // longæ¨¡å¼: çª—å£å†…æˆ–end_result=1æ—¶ä¿ï¿½?G (ç”¨æˆ·ä¸»åŠ¨å…³æœº/å¼±ä¿¡å·é™¤å¤–)
+        // longÄ£Ê½: ´°¿ÚÄÚ»òend_result=1Ê±±£??G (ÓÃ»§Ö÷¶¯¹Ø»ú/ÈõĞÅºÅ³ıÍâ)
         if(!fourG_user_off && !fourG_init_failed && !fourG_weak_signal && (config_is_active_window() || g_window.end_result == 1))
             fourG_keep_on = 1;
         else
-            gpio_bit_reset(GPIOB, GPIO_PIN_5);  // long+er=0+çª—å£ï¿½?user_off/weak_signal: 4Gæ–­ç”µ
+            gpio_bit_reset(GPIOB, GPIO_PIN_5);  // long+er=0+´°¿Ú??user_off/weak_signal: 4G¶Ïµç
     }
     else
     {
-        // short/dot: 4Gå§‹ç»ˆæ–­ç”µ(ç”±do_uploadåœ¨ä¸ŠæŠ¥å®Œåå·²PowerOff)
+        // short/dot: 4GÊ¼ÖÕ¶Ïµç(ÓÉdo_uploadÔÚÉÏ±¨ÍêºóÒÑPowerOff)
         gpio_bit_reset(GPIOB, GPIO_PIN_5);
     }
 
-    // === LCD å»¶æ—¶å…³é—­: LCDä»åœ¨æ˜¾ç¤ºï¿½? å…ˆçŸ­ä¼‘çœ ï¿½?0ç§’è¶…æ—¶å†å…³é—­ ===
-    // å®æ—¶æ¨¡å¼(1-10så”¤é†’)ï¿½?do_realtime_check ï¿½?lcd_check_timeout() è‡ªç„¶å¤„ç†, æ­¤å¤„è·³è¿‡
+    // === LCD ÑÓÊ±¹Ø±Õ: LCDÈÔÔÚÏÔÊ¾?? ÏÈ¶ÌĞİÃß??0Ãë³¬Ê±ÔÙ¹Ø±Õ ===
+    // ÊµÊ±Ä£Ê½(1-10s»½ĞÑ)??do_realtime_check ??lcd_check_timeout() ×ÔÈ»´¦Àí, ´Ë´¦Ìø¹ı
     if(g_lcd_active && !g_real_enabled)
     {
         uint32_t now_sec = hhmmss_to_seconds(rtc_get_hhmmss());
@@ -815,29 +907,30 @@ static void do_sleep(void)
             rtc_alarm_wakeup_init();
             rtc_set_next_alarm_sec((uint8_t)remain);
             button_exti_init();
-            if(fourG_keep_on) { com_lpuart_init(); lpuart_wakeup_init(); }
+            if(g_bt_on) ble_exti_init();
+            if(fourG_keep_on) { com_lpuart_init(); lpuart_wakeup_init(); ri_exti_init(); }
             lpuart_dma_rx_disable();
 
             printf_debug("[SM] LCD timeout sleep %ds\r\n", (int)remain);
             trea_delay_ms(20);
             enter_deepsleep_mode(fourG_keep_on);
 
-            // å”¤é†’: æŒ‰é”®æˆ–LPUART ï¿½?ç›´æ¥è¿›å…¥ STATE_WAKEUP (lcd_activate ä¼šé‡ç½®è®¡ï¿½?
-            if(button_wakeup_flag || counter0)
+            // »½ĞÑ: °´¼ü»òLPUART»òRI»òBLEÁ¬½Ó ¡ú Ö±½Ó½øÈë STATE_WAKEUP
+            if(button_wakeup_flag || counter0 || ri_wakeup_flag || ble_connect_wakeup_flag)
             {
                 app_state = STATE_WAKEUP;
                 return;
             }
         }
-        // RTC è¶…æ—¶æˆ–å·²è¿‡æœŸ: å…³é—­ LCD
+        // RTC ³¬Ê±»òÒÑ¹ıÆÚ: ¹Ø±Õ LCD
         lcd_shutdown();
         printf_debug("[SM] LCD off after timeout\r\n");
     }
 
-    // è®¾ç½®RTCé—¹é’Ÿï¼ˆç´§è´´æ·±ä¼‘çœ å‰ï¼Œé˜²æ­¢é—¹é’Ÿæ—¶é—´å·²è¿‡ï¿½?
+    // ÉèÖÃRTCÄÖÖÓ£¨½ôÌùÉîĞİÃßÇ°£¬·ÀÖ¹ÄÖÖÓÊ±¼äÒÑ¹ı??
     rtc_alarm_wakeup_init();
 
-    // å®šæ—¶é˜€é—¨: è®¡ç®—æœ€è¿‘ä¸€ä¸ªæœªæ‰§è¡Œçš„é˜€é—¨äº‹ä»¶è·å½“å‰çš„ç§’æ•°
+    // ¶¨Ê±·§ÃÅ: ¼ÆËã×î½üÒ»¸öÎ´Ö´ĞĞµÄ·§ÃÅÊÂ¼ş¾àµ±Ç°µÄÃëÊı
     {
         uint8_t use_valve_alarm = 0;
         uint32_t valve_wait_sec = 0xFFFFFFFF;
@@ -858,11 +951,11 @@ static void do_sleep(void)
                 if(w < valve_wait_sec) valve_wait_sec = w;
             }
 
-            // ä¸æ­£å¸¸é‡‡é›†é—´éš”æ¯”è¾ƒ, å–æ›´æ—©çš„
+            // ÓëÕı³£²É¼¯¼ä¸ô±È½Ï, È¡¸üÔçµÄ
             uint32_t collect_sec = (uint32_t)g_interval.collect_interval_min * 60;
             if(valve_wait_sec < collect_sec && valve_wait_sec < 0xFFFFFFFF)
             {
-                // é˜€é—¨äº‹ä»¶æ›´æ—©: ç›´æ¥è®¾å®šç»å¯¹æ—¶é—´é—¹é’Ÿ
+                // ·§ÃÅÊÂ¼ş¸üÔç: Ö±½ÓÉè¶¨¾ø¶ÔÊ±¼äÄÖÖÓ
                 uint32_t target;
                 if(!timing_open_done_today)
                 {
@@ -894,35 +987,62 @@ static void do_sleep(void)
         }
     }
 
-    // LPUARTå”¤é†’: ï¿½?Gæœ‰ç”µæ—¶æ‰æœ‰æ„ï¿½?å¯æ¥æ”¶ä¸‹å‘URC)
+    // LPUART»½ĞÑ + RI»½ĞÑ: 4GÓĞµçÊ±²ÅÓĞÒâÒå(¿É½ÓÊÕÏÂ·¢URC)
     if(fourG_keep_on)
     {
         com_lpuart_init();
         lpuart_wakeup_init();
+        ri_exti_init();
     }
 
-    // PA12æŒ‰é”®å”¤é†’: å§‹ç»ˆå¯ç”¨(ç”¨äºæ‰‹åŠ¨å¼€ï¿½?G)
+    // PA12°´¼ü»½ĞÑ: Ê¼ÖÕÆôÓÃ(ÓÃÓÚÊÖ¶¯¿ª??G)
     button_exti_init();
 
-    // æ·±ä¼‘çœ å‰ç¦ç”¨DMA(æ·±ä¼‘çœ æœŸé—´DMAæ—¶é’Ÿè¢«é—¨ï¿½? éœ€æ¸…ç†çŠ¶ï¿½?
+    // BLEÁ¬½ÓÊÂ¼şÎ´´¦Àí(Óë°´¼üÍ¬Ê±»½ĞÑ), »Øµ½WAKEUP´¦Àí
+    if(ble_connect_wakeup_flag)
+    {
+        app_state = STATE_WAKEUP;
+        return;
+    }
+
+    // BLE¿ªÆôÊ±: ¼ì²é60sÎ´Á¬½Ó³¬Ê±, Î´³¬Ê±ÔòÊ¹ÄÜPD2 EXTI»½ĞÑ
+    if(g_bt_on)
+    {
+        uint32_t now_sec = hhmmss_to_seconds(rtc_get_hhmmss());
+        uint32_t on_sec  = hhmmss_to_seconds(g_ble_on_hhmmss);
+        uint32_t elapsed = (now_sec >= on_sec) ? (now_sec - on_sec) : (86400 - on_sec + now_sec);
+        if(elapsed >= 60)
+        {
+            printf_debug("[SM] BLE timeout (%ds), auto power off\r\n", (int)elapsed);
+            g_bt_on = 0;
+            gpio_bit_reset(GPIOC, GPIO_PIN_12);
+            if(g_lcd_active) slcd_seg_icon_display(SLCD_ICON_LY, RESET);
+        }
+        else
+        {
+            ble_exti_init();
+        }
+    }
+
+    // ÉîĞİÃßÇ°½ûÓÃDMA(ÉîĞİÃßÆÚ¼äDMAÊ±ÖÓ±»ÃÅ?? ĞèÇåÀí×´??
     lpuart_dma_rx_disable();
 
     if(g_real_enabled)
-        printf_debug("[SM] SLEEP %ds-RT (buf=%d 4G=%s)\r\n",
-                     g_real_frequency, sensor_buf_count(),
-                     fourG_keep_on ? "ON" : "OFF");
+        printf_debug("[SM] SLEEP %ds-RT (buf=%d 4G=%s BLE=%d)\r\n",
+                     g_real_frequency, ee_hist_count(),
+                     fourG_keep_on ? "ON" : "OFF", g_bt_on);
     else
-        printf_debug("[SM] SLEEP %dmin (buf=%d 4G=%s)\r\n",
-                     g_interval.collect_interval_min, sensor_buf_count(),
-                     fourG_keep_on ? "ON" : "OFF");
+        printf_debug("[SM] SLEEP %dmin (buf=%d 4G=%s BLE=%d)\r\n",
+                     g_interval.collect_interval_min, ee_hist_count(),
+                     fourG_keep_on ? "ON" : "OFF", g_bt_on);
     trea_delay_ms(20);
 
     enter_deepsleep_mode(fourG_keep_on);
 
-    // å®æ—¶é‡‡é›†å¾ªç¯: RTCç§’çº§å”¤é†’ ï¿½?æ£€æŸ¥æ˜¯å¦åˆ°é‡‡é›†ç½‘æ ¼ ï¿½?å¦åˆ™æœ€å°é‡‡ï¿½?å›ç¡
-    while(g_real_enabled && rtc_alarm_flag && !counter0 && !button_wakeup_flag)
+    // ÊµÊ±²É¼¯Ñ­»·: RTCÃë¼¶»½ĞÑ ¡ú ¼ì²éÊÇ·ñµ½²É¼¯Íø¸ñ ¡ú ·ñÔò×îĞ¡²É¼¯»ØË¯
+    while(g_real_enabled && rtc_alarm_flag && !counter0 && !ri_wakeup_flag && !button_wakeup_flag && !ble_connect_wakeup_flag)
     {
-        // æœ€å°æ—¶é’Ÿæ¢ï¿½?ï¿½?è¯»RTCåˆ¤æ–­æ˜¯å¦åˆ°è¾¾æ­£å¸¸é‡‡é›†ç½‘æ ¼
+        // ×îĞ¡Ê±ÖÓ»Ö????¶ÁRTCÅĞ¶ÏÊÇ·ñµ½´ïÕı³£²É¼¯Íø¸ñ
         system_wakeup_reinit();
         rtc_register_sync_wait();
 
@@ -932,20 +1052,21 @@ static void do_sleep(void)
                              + (uint16_t)((now_hhmmss / 100) % 100);
             uint8_t cur_sec = (uint8_t)(now_hhmmss % 100);
 
-            // åˆ°è¾¾æ­£å¸¸é‡‡é›†ç½‘æ ¼ (æ•´åˆ†é’Ÿï¿½?så®¹å·®, ä¸”å½“å‰åˆ†é’Ÿæœªæ‰§è¡Œè¿‡é‡‡ï¿½? ï¿½?é€€å‡ºå¾ªï¿½? èµ°å®Œæ•´STATE_WAKEUP
+            // µ½´ïÕı³£²É¼¯Íø¸ñ (Õû·ÖÖÓ??sÈİ²î, ÇÒµ±Ç°·ÖÖÓÎ´Ö´ĞĞ¹ı²É?? ??ÍË³öÑ­?? ×ßÍêÕûSTATE_WAKEUP
             if(g_interval.collect_interval_min > 0 &&
                (cur_min % g_interval.collect_interval_min) == 0 &&
                cur_sec < 6 &&
                cur_min != last_grid_collect_min)
                 break;
 
-            // ---- å®æ—¶æ¨¡å¼ä¸‹çš„å®šæ—¶é˜€é—¨æ£€æŸ¥ ----
+            // ---- ÊµÊ±Ä£Ê½ÏÂµÄ¶¨Ê±·§ÃÅ¼ì²é ----
             if(g_valve_timing.enabled)
             {
                 uint32_t now_sec = hhmmss_to_seconds(now_hhmmss);
                 uint8_t cur_hour = (uint8_t)(now_hhmmss / 10000);
+                int32_t v_tol = (int32_t)g_real_frequency + 2;  /* Èİ²î=»½ĞÑÖÜÆÚ+2s, ¶¯Ì¬·Å¿í */
 
-                // åˆå¤œé‡ç½®å½“æ—¥æ‰§è¡Œæ ‡å¿—
+                // ÎçÒ¹ÖØÖÃµ±ÈÕÖ´ĞĞ±êÖ¾
                 if(cur_hour == 0 && timing_last_reset_hour != 0)
                 {
                     timing_open_done_today  = 0;
@@ -955,53 +1076,53 @@ static void do_sleep(void)
                 else if(cur_hour != 0)
                     timing_last_reset_hour = cur_hour;
 
-                // æ£€æŸ¥å¼€é˜€ (å®¹å·®Â±5ç§’, å®æ—¶æ¨¡å¼é¢‘ç‡é«˜æ— éœ€30s)
+                // ¼ì²é¿ª·§
                 if(!timing_open_done_today && g_valve_timing.open_time > 0)
                 {
                     uint32_t tgt = hhmmss_to_seconds(g_valve_timing.open_time);
                     int32_t diff = (int32_t)now_sec - (int32_t)tgt;
-                    if(diff >= 0 && diff <= 5)
+                    if(diff >= 0 && diff <= v_tol)
                     {
                         printf_debug("[SM] VTIMING-RT: OPEN at %06lu\r\n", now_hhmmss);
-                        vtiming_execute_and_report("open");
+                        vtiming_execute_and_report("open", 0);
                         timing_open_done_today = 1;
                     }
                 }
-                // æ£€æŸ¥å…³é˜€ (å®¹å·®Â±5ç§’)
+                // ¼ì²é¹Ø·§
                 if(!timing_close_done_today && g_valve_timing.close_time > 0)
                 {
                     uint32_t tgt = hhmmss_to_seconds(g_valve_timing.close_time);
                     int32_t diff = (int32_t)now_sec - (int32_t)tgt;
-                    if(diff >= 0 && diff <= 5)
+                    if(diff >= 0 && diff <= v_tol)
                     {
                         printf_debug("[SM] VTIMING-RT: CLOSE at %06lu\r\n", now_hhmmss);
-                        vtiming_execute_and_report("close");
+                        vtiming_execute_and_report("close", 0);
                         timing_close_done_today = 1;
                     }
                 }
             }
         }
 
-        // éé‡‡é›†ç½‘ï¿½?ï¿½?æœ€å°åŒ–å®æ—¶é‡‡é›† (å†…éƒ¨: é‡‡é›†â†’åˆ¤æ–­â†’[å¯èƒ½ä¸ŠæŠ¥]â†’è®¾é—¹é’Ÿâ†’æ·±ä¼‘çœ â†’å”¤é†’åè¿”å›)
+        // ·Ç²É¼¯Íø????×îĞ¡»¯ÊµÊ±²É¼¯ (ÄÚ²¿: ²É¼¯¡úÅĞ¶Ï¡ú[¿ÉÄÜÉÏ±¨]¡úÉèÄÖÖÓ¡úÉîĞİÃß¡ú»½ĞÑºó·µ»Ø)
         do_realtime_check();
-        // do_realtime_check è¿”å›ï¿½? æ–°çš„å”¤é†’æ ‡å¿—å·²ç½®ï¿½? whileå†æ¬¡åˆ¤æ–­
+        // do_realtime_check ·µ»Ø?? ĞÂµÄ»½ĞÑ±êÖ¾ÒÑÖÃ?? whileÔÙ´ÎÅĞ¶Ï
     }
 
-    // å”¤é†’åç«‹å³è½¬ï¿½?WAKEUP çŠ¶ï¿½?
+    // »½ĞÑºóÁ¢¼´×ª??WAKEUP ×´??
     app_state = STATE_WAKEUP;
 }
 
-// ==================== æŒ‰é”®å•æŒ‰ï¼ˆçŸ­æŒ‰ï¼‰å¤„ç† ====================
-// å½“ç”¨æˆ·çŸ­ï¿½?PA12ï¼ˆå°ï¿½?ç§’é‡Šæ”¾ï¼‰æ—¶è°ƒç”¨ã€‚æ‰“å°é…ç½®ã€å½“å‰å®æ—¶ä¼ æ„Ÿå™¨æ•°æ®ï¼Œå¹¶è¿æ¥ 4G å¹³å°å®Œæ•´ä¸ŠæŠ¥å½“æ—¶çš„çŠ¶æ€ï¿½?
+// ==================== °´¼üµ¥°´£¨¶Ì°´£©´¦Àí ====================
+// µ±ÓÃ»§¶Ì??PA12£¨Ğ¡??ÃëÊÍ·Å£©Ê±µ÷ÓÃ¡£´òÓ¡ÅäÖÃ¡¢µ±Ç°ÊµÊ±´«¸ĞÆ÷Êı¾İ£¬²¢Á¬½Ó 4G Æ½Ì¨ÍêÕûÉÏ±¨µ±Ê±µÄ×´Ì¬??
 static void do_button_short_press(void)
 {
     printf_debug("\r\n==================================================\r\n");
     printf_debug("[SM] BUTTON SHORT PRESS: Starting manual report & config dump\r\n");
 
-    // 1. æ‰“å°å½“å‰ç³»ç»Ÿé…ç½®
+    // 1. ´òÓ¡µ±Ç°ÏµÍ³ÅäÖÃ
     config_print_current();
     
-    // 2. ç«‹å³é‡‡é›†å½“å‰å®æ—¶ä¼ æ„Ÿå™¨æ•°æ®å¹¶æ‰“å°
+    // 2. Á¢¼´²É¼¯µ±Ç°ÊµÊ±´«¸ĞÆ÷Êı¾İ²¢´òÓ¡
     printf_debug("[SM] Sampling live sensor data...\r\n");
     PT304D_CollectAll((g_sensor_count >= 2) ? &g_sensor.raw2 : NULL, &g_sensor.raw);
     
@@ -1013,7 +1134,7 @@ static void do_button_short_press(void)
     printf_debug("  Voltage:    %.2f V\r\n", g_sensor.voltage);
     printf_debug("==================================================\r\n\r\n");
 
-    // 3. 4Gè¿æ¥ (å¤ç”¨å…¬å…±æ¨¡å—)
+    // 3. 4GÁ¬½Ó (¸´ÓÃ¹«¹²Ä£¿é)
     int was_online;
     int ec_ok = fourG_ensure_ready(&was_online);
 
@@ -1021,19 +1142,19 @@ static void do_button_short_press(void)
     {
         lcd_update_csq();
 
-        // A. ä¸ŠæŠ¥ä¼ æ„Ÿå™¨æ•°æ®
+        // A. ÉÏ±¨´«¸ĞÆ÷Êı¾İ
         EC801E_PublishSensorData(&g_sensor.raw, g_sensor.voltage);
         trea_delay_ms(700);
 
-        // B. ä¸ŠæŠ¥ä¼ æ„Ÿå™¨åœ¨çº¿çŠ¶æ€
+        // B. ÉÏ±¨´«¸ĞÆ÷ÔÚÏß×´Ì¬
         publish_sensor_status();
         trea_delay_ms(700);
 
-        // C. ä¸ŠæŠ¥å‹åŠ›+æ¸©åº¦çŠ¶æ€ (å¤ç”¨å…¬å…±æ¨¡å—)
+        // C. ÉÏ±¨Ñ¹Á¦+ÎÂ¶È×´Ì¬ (¸´ÓÃ¹«¹²Ä£¿é)
         publish_all_status(g_sensor.last_pressure_collect, g_sensor.last_pressure_collect2);
         trea_delay_ms(700);
 
-        // D. ä¸ŠæŠ¥æœ€åé˜€é—¨æŒ‡ä»¤
+        // D. ÉÏ±¨×îºó·§ÃÅÖ¸Áî
         {
             char v_order[4];
             snprintf(v_order, sizeof(v_order), "%d", g_valve_last_order);
@@ -1041,7 +1162,7 @@ static void do_button_short_press(void)
         }
         trea_delay_ms(700);
 
-        // E. ç”¨æˆ·ç«¯MQTTä¸ŠæŠ¥
+        // E. ÓÃ»§¶ËMQTTÉÏ±¨
         user_mqtt_try_publish();
 
         printf_debug("[SM] BUTTON SHORT PRESS: Manual status reporting success!\r\n");
@@ -1051,12 +1172,12 @@ static void do_button_short_press(void)
         printf_debug("[SM] BUTTON SHORT PRESS: manual report FAILED (MQTT connection failed)\r\n");
     }
 
-    // 4. ç­‰å¾…æŒ‰é”®æ¾æ‰‹ï¼Œé˜²æ­¢é‡Šæ”¾æŠ–åŠ¨å†æ¬¡è§¦å‘
+    // 4. µÈ´ı°´¼üËÉÊÖ£¬·ÀÖ¹ÊÍ·Å¶¶¶¯ÔÙ´Î´¥·¢
     while(button_is_pressed())
         trea_delay_ms(100);
     trea_delay_ms(50);
 
-    // 5. æ”¶å°¾ï¼šç­‰å¾…5s æ¥æ”¶å¹³å°ä¸‹è¡ŒæŒ‡ä»¤
+    // 5. ÊÕÎ²£ºµÈ´ı5s ½ÓÊÕÆ½Ì¨ÏÂĞĞÖ¸Áî
     printf_debug("[SM] BUTTON: waiting 5s for downlink...\r\n");
     trea_delay_ms(5000);
     {
@@ -1067,24 +1188,24 @@ static void do_button_short_press(void)
             printf_debug("[SM] BUTTON: no downlink within 5s\r\n");
     }
 
-    // 6. æ¢å¤4GçŠ¶æ€ (å¤ç”¨å…¬å…±æ¨¡å—)
+    // 6. »Ö¸´4G×´Ì¬ (¸´ÓÃ¹«¹²Ä£¿é)
     fourG_restore(was_online, ec_ok);
 }
 
-// ==================== å”¤é†’æ¢å¤ ====================
+// ==================== »½ĞÑ»Ö¸´ ====================
 static void do_wakeup(void)
 {
-    // åˆ¤æ–­æ˜¯å¦ä¸ºçº¯å‘¨æœŸé‡‡é›†å®šæ—¶å”¤é†’ (éæŒ‰é”®ä¸”éLPUARTæ´»åŠ¨)
-    if(button_wakeup_flag == 0 && counter0 == 0)
+    // ÅĞ¶ÏÊÇ·ñÎª´¿ÖÜÆÚ²É¼¯¶¨Ê±»½ĞÑ (·Ç°´¼üÇÒ·ÇLPUARTÇÒ·ÇRIÇÒ·ÇBLEÁ¬½Ó)
+    if(button_wakeup_flag == 0 && counter0 == 0 && ri_wakeup_flag == 0 && ble_connect_wakeup_flag == 0)
     {
         g_is_minimal_wakeup = 1;
         g_need_adc_sampling = 0;
         
         system_wakeup_reinit();
         
-        // æç®€é‡‡é›†åˆå§‹ï¿½? Systickã€Debug ä¸²å£å‘ï¿½? PB5(SW_IIC)/IIC å¼•è„šï¿½?PT304D_CollectAll å†…éƒ¨åˆå§‹ï¿½?
+        // ¼«¼ò²É¼¯³õÊ¼?? Systick¡¢Debug ´®¿Ú·¢?? PD4(SW_IIC)/IIC Òı½Å??PT304D_CollectAll ÄÚ²¿³õÊ¼??
         systick_config();
-        my_systick_config();
+//        my_systick_config();
         trea_uart_init();
         
         if(g_need_adc_sampling)
@@ -1097,11 +1218,11 @@ static void do_wakeup(void)
         rtc_show_time();
         printf_debug("[SM] PURE RTC WAKEUP: minimal init (ADC=%d)\r\n", g_need_adc_sampling);
     }
-    else if(button_wakeup_flag && counter0 == 0)
+    else if(button_wakeup_flag && counter0 == 0 && ri_wakeup_flag == 0)
     {
-        // === æŒ‰é”®å”¤é†’ (å¿«é€Ÿæ£€æµ‹è·¯ï¿½?: æœ€å°åˆå§‹åŒ–, è·³è¿‡ sys_init() ï¿½?1s å»¶æ—¶ ===
-        // GPIO çŠ¶æ€åœ¨æ·±ä¼‘çœ æœŸé—´ä¿ï¿½? PD0 ä»ä¸ºè¾“å…¥ä¸Šæ‹‰, button_is_pressed() å¯ç›´æ¥ä½¿ï¿½?
-        // éœ€è¦å®Œæ•´å¤–è®¾æ—¶ï¿½?ensure_full_init() æŒ‰éœ€å‡çº§
+        // === °´¼ü»½ĞÑ (¿ìËÙ¼ì²âÂ·??: ×îĞ¡³õÊ¼»¯, Ìø¹ı sys_init() ??1s ÑÓÊ± ===
+        // GPIO ×´Ì¬ÔÚÉîĞİÃßÆÚ¼ä±£?? PD0 ÈÔÎªÊäÈëÉÏÀ­, button_is_pressed() ¿ÉÖ±½ÓÊ¹??
+        // ĞèÒªÍêÕûÍâÉèÊ±??ensure_full_init() °´ĞèÉı¼¶
         g_is_minimal_wakeup = 1;
         g_need_adc_sampling = 1;
         
@@ -1115,37 +1236,37 @@ static void do_wakeup(void)
     }
     else
     {
-        // === LPUART å”¤é†’æˆ–æ··åˆå”¤ï¿½? å®Œæ•´åˆå§‹ï¿½?===
+        // === LPUART/RI »½ĞÑ»ò»ìºÏ»½ĞÑ: ÍêÕû³õÊ¼»¯ ===
         g_is_minimal_wakeup = 0;
         g_need_adc_sampling = 1;
         
         system_wakeup_reinit();
         sys_init();
         
-        // ç¦ç”¨æŒ‰é”®EXTI(å”¤é†’åç«‹å³ç¦æ­¢æŠ¨åŠ¨é‡å¤è§¦ï¿½?
+        // ½ûÓÃ°´¼üEXTI(»½ĞÑºóÁ¢¼´½ûÖ¹Åê¶¯ÖØ¸´´¥??
         button_exti_disable();
         
-        // PB5(V4G_EN 4Gç”µæº)æ¢å¤: gpio_inité»˜è®¤PB5=LOW
-        // ä½ç”µå‹çœç”µæ¨¡ï¿½? ä¸æ¢ï¿½?G
-        // ç”¨æˆ·ä¸»åŠ¨å…³æœº: ä¸æ¢ï¿½?G(ç­‰å¾…æŒ‰é”®é‡æ–°å¼€ï¿½?
-        // å¼±ä¿¡å·æ¨¡å¼: ä¸æ¢ï¿½?G(ä¸‹æ¬¡ä¸ŠæŠ¥å†·å¯åŠ¨)
-        // longæ¨¡å¼: çª—å£å†…æˆ–end_result=1æ—¶æ¢ï¿½?Gä¾›ç”µ
+        // PB5(V4G_EN 4GµçÔ´)»Ö¸´: gpio_initÄ¬ÈÏPB5=LOW
+        // µÍµçÑ¹Ê¡µçÄ£?? ²»»Ö??G
+        // ÓÃ»§Ö÷¶¯¹Ø»ú: ²»»Ö??G(µÈ´ı°´¼üÖØĞÂ¿ª??
+        // ÈõĞÅºÅÄ£Ê½: ²»»Ö??G(ÏÂ´ÎÉÏ±¨ÀäÆô¶¯)
+        // longÄ£Ê½: ´°¿ÚÄÚ»òend_result=1Ê±»Ö??G¹©µç
         if(!voltage_low_power && !fourG_user_off && !fourG_init_failed && !fourG_weak_signal &&
            strcmp(g_window.pattern, "long") == 0 &&
            (config_is_active_window() || g_window.end_result == 1))
             gpio_bit_set(GPIOB, GPIO_PIN_5);
-        // å…¶ä½™æƒ…å†µ(VLP/user_off/weak_signal/short/dot/long+er=0+çª—å£ï¿½?: PB5ä¿æŒLOW
+        // ÆäÓàÇé¿ö(VLP/user_off/weak_signal/short/dot/long+er=0+´°¿Ú??: PB5±£³ÖLOW
         
         rtc_show_time();
         printf_debug("\r\n");
     }
 
-    // === æŒ‰é”®å”¤é†’: è¿æŒ‰æ£€ï¿½?+ é•¿æŒ‰4Gå¼€ï¿½?===
+    // === °´¼ü»½ĞÑ: Á¬°´¼ì??+ ³¤°´4G¿ª??===
     if(button_wakeup_flag)
     {
         printf_debug("[SM] WAKEUP: BUTTON\r\n");
 
-        // æŒ‰é”®å”¤é†’æ¢å¤LCDæ˜¾ç¤º (è‹¥å·²å…³é—­åˆ™é‡æ–°åˆå§‹åŒ–)
+        // °´¼ü»½ĞÑ»Ö¸´LCDÏÔÊ¾ (ÈôÒÑ¹Ø±ÕÔòÖØĞÂ³õÊ¼»¯)
         uint8_t lcd_was_off = !g_lcd_active;
         lcd_activate();
         if(g_lcd_active)
@@ -1153,7 +1274,7 @@ static void do_wakeup(void)
 
         button_wakeup_flag = 0;
 
-        // LCDä»å…³é—­æ¢ï¿½? æœ¬æ¬¡æŒ‰é”®ä»…æ¿€æ´»å±ï¿½? ä¸åšUIæ“ä½œ(ç¿»é¡µï¿½?
+        // LCD´Ó¹Ø±Õ»Ö?? ±¾´Î°´¼ü½ö¼¤»îÆÁ?? ²»×öUI²Ù×÷(·­Ò³??
         if(lcd_was_off && g_lcd_active)
         {
             buzzer_beep(1, 200);
@@ -1162,27 +1283,27 @@ static void do_wakeup(void)
             return;
         }
 
-        // æ¶ˆæŠ–å»¶æ—¶: ï¿½?0msç­‰æœºæ¢°å‰æ²¿æŠ–åŠ¨ç»“ï¿½?
+        // Ïû¶¶ÑÓÊ±: ??0msµÈ»úĞµÇ°ÑØ¶¶¶¯½á??
         trea_delay_ms(20);
 
-        // ç¡®è®¤å½“å‰æŒ‰é”®çŠ¶ï¿½?
+        // È·ÈÏµ±Ç°°´¼ü×´??
         uint8_t is_short_press = 0;
 
         if(!button_is_pressed())
         {
-            // 20mså†…å·²æ¾å¼€ ï¿½?çŸ­æŒ‰
+            // 20msÄÚÒÑËÉ¿ª ??¶Ì°´
             is_short_press = 1;
         }
         else
         {
-            // æŒ‰é”®ä»æŒï¿½? æ£€æŸ¥æ˜¯å¦é•¿ï¿½?4s)
+            // °´¼üÈÔ³Ö?? ¼ì²éÊÇ·ñ³¤??4s)
             uint8_t i;
             for(i = 0; i < 40; i++)
             {
                 trea_delay_ms(100);
                 if(!button_is_pressed())
                 {
-                    // 4så†…æ¾å¼€ ï¿½?çŸ­æŒ‰
+                    // 4sÄÚËÉ¿ª ??¶Ì°´
                     is_short_press = 1;
                     break;
                 }
@@ -1191,16 +1312,16 @@ static void do_wakeup(void)
 
         if(is_short_press)
         {
-            // === çŸ­æŒ‰: è¿›å…¥è¿æŒ‰è®¡æ•° (500msçª—å£) ===
+            // === ¶Ì°´: ½øÈëÁ¬°´¼ÆÊı (500ms´°¿Ú) ===
             uint8_t press_count = 1;
             uint16_t wait_ms;
 
-            // ç­‰å¾…æ¾æ‰‹ (å¦‚æœè¿˜æŒ‰ç€)
+            // µÈ´ıËÉÊÖ (Èç¹û»¹°´×Å)
             while(button_is_pressed())
                 trea_delay_ms(20);
-            trea_delay_ms(30);  // æ¾æ‰‹æ¶ˆæŠ–
+            trea_delay_ms(30);  // ËÉÊÖÏû¶¶
 
-            // 500msçª—å£å†…æ£€æµ‹åç»­æŒ‰ï¿½?
+            // 500ms´°¿ÚÄÚ¼ì²âºóĞø°´??
             while(press_count < 4)
             {
                 uint8_t got_press = 0;
@@ -1215,13 +1336,13 @@ static void do_wakeup(void)
                 }
 
                 if(!got_press)
-                    break;  // 500mså†…æ— æ–°æŒ‰ï¿½? ç»“æŸè®¡æ•°
+                    break;  // 500msÄÚÎŞĞÂ°´?? ½áÊø¼ÆÊı
 
                 press_count++;
-                // ç­‰å¾…æœ¬æ¬¡æŒ‰é”®æ¾æ‰‹
+                // µÈ´ı±¾´Î°´¼üËÉÊÖ
                 while(button_is_pressed())
                     trea_delay_ms(20);
-                trea_delay_ms(30);  // æ¾æ‰‹æ¶ˆæŠ–
+                trea_delay_ms(30);  // ËÉÊÖÏû¶¶
             }
 
             printf_debug("[SM] BUTTON: %d press(es) detected\r\n", press_count);
@@ -1230,41 +1351,41 @@ static void do_wakeup(void)
             {
                 
                 case 1:
-                    // 1æ¬¡çŸ­æŒ‰? LCDé¡µé¢åˆ‡æ¢ + èœ‚é¸£ç¡®è®¤
+                    // 1´Î¶Ì°´? LCDÒ³ÃæÇĞ»» + ·äÃùÈ·ÈÏ
                     buzzer_beep(1, 200);
                     if(g_lcd_active) lcd_ui_next_page();
-                    printf_debug("[SM] BUTTON: LCD page -> %d\r\n", g_lcd_page);
+                        printf_debug("[SM] BUTTON: LCD page -> %d\r\n", g_lcd_page);
                     break;
 
                 case 2:
-                    // 2æ¬¡çŸ­æŒ‰? æ•°æ®ä¸ŠæŠ¥ (éœ€å®Œæ•´å¤–è®¾)
+                    // 2´Î¶Ì°´? Êı¾İÉÏ±¨ (ĞèÍêÕûÍâÉè)
                     ensure_full_init();
                     do_button_short_press();
                     break;
 
                 case 3:
-                    // 3æ¬¡çŸ­æŒ‰? è“ç‰™å¼€ï¿½?
+                    // 3´Î¶Ì°´: À¶ÑÀ¿ª¹ØÇĞ»» (·Ç×èÈû: ½öÉÏ/¶Ïµç, ²»½øÈëBLE_OTA)
                     if(g_lcd_active) lcd_ui_toggle_bluetooth();
+                    buzzer_beep(1, 200);
                     printf_debug("[SM] BUTTON: Bluetooth %s\r\n", g_bt_on ? "ON" : "OFF");
                     if(g_bt_on)
                     {
-                        ble_link_gpio_init();  /* PD2è¾“å…¥+ä¸Šæ‹‰, æ£€æµ‹BLEè¿æ¥çŠ¶æ€ */
-                        ble_set_name_from_device_id(); /* ATæŒ‡ä»¤è®¾ç½®BLEåç§°: è®¾å¤‡è¡¨å· */
-                        ble_ota_init();        /* çŠ¶æ€=WAIT_CONNECT, å¯åŠ¨60sè¶…æ—¶ */
-                        app_state = STATE_BLE_OTA;
-                        printf_debug("[SM] Entering BLE_OTA mode (waiting PD2=LOW)\r\n");
-                        trea_delay_ms(1000);
-                        return;
+                        ble_link_gpio_init();           /* PD2ÊäÈë+ÉÏÀ­ */
+                        ble_set_name_from_device_id();  /* ATÖ¸ÁîÉèÖÃBLEÃû³Æ */
+                        g_ble_on_hhmmss = rtc_get_hhmmss(); /* ¼ÇÂ¼¿ªÆôÊ±¼ä, ÓÃÓÚ60s³¬Ê± */
+                        printf_debug("[SM] BLE powered on, waiting connect via EXTI\r\n");
                     }
                     else
                     {
+                        ble_exti_disable();
                         ble_uart_deinit();
+                        printf_debug("[SM] BLE powered off\r\n");
                     }
                     break;
 				case 4:
-                    // 4æ¬¡çŸ­æŒ‰ï¼Œ4Gå¼€
+                    // 4´Î¶Ì°´£¬4G¿ª
                     fourG_user_off = 0;
-                    fourG_weak_signal = 0;  // æ¸…é™¤å¼±ä¿¡å·æ ‡å¿—
+                    fourG_weak_signal = 0;  // Çå³ıÈõĞÅºÅ±êÖ¾
 					printf_debug("4G_user_on,Press the button twice in quick succession");
                     break;
 
@@ -1276,20 +1397,20 @@ static void do_wakeup(void)
             return;
         }
 
-        // === é•¿æŒ‰4sç¡®è®¤ ï¿½?4Gå¼€æœºè”ï¿½?(éœ€å®Œæ•´å¤–è®¾) ===
+        // === ³¤°´4sÈ·ÈÏ ??4G¿ª»úÁª??(ĞèÍêÕûÍâÉè) ===
         ensure_full_init();
         printf_debug("[SM] BUTTON: 4s confirmed, powering on 4G\r\n");
-        fourG_user_off = 0;  // æ¸…é™¤ç”¨æˆ·å…³æœºæ ‡å¿—
-        fourG_weak_signal = 0;  // æ‰‹åŠ¨å¼€æœºæ¸…é™¤å¼±ä¿¡å·æ ‡å¿—
+        fourG_user_off = 0;  // Çå³ıÓÃ»§¹Ø»ú±êÖ¾
+        fourG_weak_signal = 0;  // ÊÖ¶¯¿ª»úÇå³ıÈõĞÅºÅ±êÖ¾
         com_lpuart_init();
         trea_delay_ms(100);
-        EC801E_PowerOn();         // PD9 æ‹‰é«˜ (idempotent, ï¿½?HIGH æ—¶ä¸å½±å“)
+        EC801E_PowerOn();         // PD9 À­¸ß (idempotent, ??HIGH Ê±²»Ó°Ïì)
         EC801E_InitAndConnect();
 
-        // éªŒè¯4Gæ¨¡å—ATå“åº” + ä¸ŠæŠ¥å¼€æœºçŠ¶ï¿½?
+        // ÑéÖ¤4GÄ£¿éATÏìÓ¦ + ÉÏ±¨¿ª»ú×´??
         if(EC801E_EnsureConnected() == EC_OK)
         {
-            fourG_init_failed = 0;  // æ‰‹åŠ¨å¼€æœºæˆåŠŸ, æ¸…é™¤å¤±è´¥æ ‡å¿—
+            fourG_init_failed = 0;  // ÊÖ¶¯¿ª»ú³É¹¦, Çå³ıÊ§°Ü±êÖ¾
             report_4g_power_state(1);
             lcd_update_csq();
             buzzer_beep(2, 200);
@@ -1300,12 +1421,12 @@ static void do_wakeup(void)
             printf_debug("[SM] BUTTON: 4G power on FAILED (no AT response)\r\n");
         }
 
-        // ç­‰å¾…æ¾æ‰‹, é˜²æ­¢é‡Šæ”¾æŠ–åŠ¨è§¦å‘ä¸‹æ¬¡å”¤é†’
+        // µÈ´ıËÉÊÖ, ·ÀÖ¹ÊÍ·Å¶¶¶¯´¥·¢ÏÂ´Î»½ĞÑ
         while(button_is_pressed())
             trea_delay_ms(100);
         trea_delay_ms(50);
 
-        // === ç»Ÿä¸€ç­‰å¾… 20s æ¥æ”¶ä¸‹è¡ŒæŒ‡ä»¤ (æ‰€æœ‰æ¨¡ï¿½? ===
+        // === Í³Ò»µÈ´ı 20s ½ÓÊÕÏÂĞĞÖ¸Áî (ËùÓĞÄ£?? ===
         printf_debug("[SM] BUTTON: %s mode, waiting 20s for downlink...\r\n",
                      g_window.pattern);
         trea_delay_ms(20000);
@@ -1317,16 +1438,16 @@ static void do_wakeup(void)
                 printf_debug("[SM] BUTTON: no downlink within 20s\r\n");
         }
 
-        // === æ¨¡å¼ç›¸å…³æ”¶å°¾ ===
+        // === Ä£Ê½Ïà¹ØÊÕÎ² ===
         if(strcmp(g_window.pattern, "long") == 0)
         {
-            // longæ¨¡å¼: ä¿æŒ4Gåœ¨çº¿ (do_sleep ï¿½?fourG_keep_on è·¯å¾„æ¥ç®¡)
+            // longÄ£Ê½: ±£³Ö4GÔÚÏß (do_sleep ??fourG_keep_on Â·¾¶½Ó¹Ü)
             EC801E_SetPSM(1);
             printf_debug("[SM] BUTTON: long mode, keep 4G online (PSM)\r\n");
         }
         else
         {
-            // short/dotæ¨¡å¼: æ–­ç”µå›ç¡
+            // short/dotÄ£Ê½: ¶Ïµç»ØË¯
             report_4g_power_state(0);
             EC801E_PowerOff();
             printf_debug("[SM] BUTTON: %s mode, 4G powered off\r\n", g_window.pattern);
@@ -1336,11 +1457,35 @@ static void do_wakeup(void)
         return;
     }
 
-    // debugé…ç½®å·²ç”±ä¸»å¾ªç¯ç»Ÿä¸€å¤„ç†
+    // debugÅäÖÃÒÑÓÉÖ÷Ñ­»·Í³Ò»´¦Àí
 
-    if(counter0)
+    // === BLEÁ¬½Ó»½ĞÑ: PD2 EXTIÏÂ½µÑØ (ÊÖ»úÁ¬½ÓBLEÄ£¿é) ===
+    if(ble_connect_wakeup_flag)
     {
-        printf_debug("[SM] WAKEUP: LPUART (downlink)\r\n");
+        ble_connect_wakeup_flag = 0;
+        ble_exti_disable();
+
+        if(g_bt_on && ble_link_is_connected())
+        {
+            printf_debug("[SM] WAKEUP: BLE connected (PD2=LOW), entering OTA mode\r\n");
+            ensure_full_init();
+            ble_uart_init();
+            ble_uart_rx_flush();
+            ble_ota_init();
+            g_ble_ota.state = BLE_OTA_IDLE;
+            g_ble_ota.last_rx_ms = trea_millis();
+            app_state = STATE_BLE_OTA;
+            return;
+        }
+        else
+        {
+            printf_debug("[SM] WAKEUP: BLE EXTI but not connected (glitch?)\r\n");
+        }
+    }
+
+    if(counter0 || ri_wakeup_flag)
+    {
+        printf_debug("[SM] WAKEUP: %s (downlink)\r\n", counter0 ? "LPUART" : "RI");
         app_state = STATE_DOWNLINK;
     }
     else if(rtc_alarm_flag)
@@ -1355,7 +1500,7 @@ static void do_wakeup(void)
     }
 }
 
-// ==================== ç¡®ä¿å®Œæ•´åˆå§‹åŒ–?====================
+// ==================== È·±£ÍêÕû³õÊ¼»¯?====================
 static void ensure_full_init(void)
 {
     if(g_is_minimal_wakeup)
@@ -1367,11 +1512,11 @@ static void ensure_full_init(void)
     }
 }
 
-// ==================== ä¸ŠæŠ¥è°ƒåº¦åˆ¤æ–­ (do_collect / do_alarm å…±ç”¨) ====================
-// æ ¹æ®å½“å‰æ¨¡å¼å’Œæ—¶é—´åˆ¤æ–­æ˜¯å¦éœ€è¦æ‰¹é‡ä¸ŠæŠ¥å†å²æ•°ï¿½? è®¾ç½® app_state
+// ==================== ÉÏ±¨µ÷¶ÈÅĞ¶Ï (do_collect / do_alarm ¹²ÓÃ) ====================
+// ¸ù¾İµ±Ç°Ä£Ê½ºÍÊ±¼äÅĞ¶ÏÊÇ·ñĞèÒªÅúÁ¿ÉÏ±¨ÀúÊ·Êı?? ÉèÖÃ app_state
 static void check_upload_schedule(void)
 {
-    // === ä½ç”µå‹çœç”µæ¨¡ï¿½? è¦†ç›–æ­£å¸¸ä¸ŠæŠ¥è°ƒåº¦, ï¿½?:00/18:00ä¸ŠæŠ¥ ===
+    // === µÍµçÑ¹Ê¡µçÄ£?? ¸²¸ÇÕı³£ÉÏ±¨µ÷¶È, ??:00/18:00ÉÏ±¨ ===
     if(voltage_low_power)
     {
         uint32_t now_hhmmss = rtc_get_hhmmss();
@@ -1379,9 +1524,9 @@ static void check_upload_schedule(void)
         if((current_hour == 8 || current_hour == 18) && !vlp_uploaded_this_hour)
         {
             vlp_uploaded_this_hour = 1;
-            if(sensor_buf_count() > 0)
+            if(ee_hist_count() > 0)
             {
-                printf_debug("[SM] VLP trigger: hour=%d, uploading %d records\r\n", current_hour, sensor_buf_count());
+                printf_debug("[SM] VLP trigger: hour=%d, uploading %d records\r\n", current_hour, ee_hist_count());
                 ensure_full_init();
                 app_state = STATE_UPLOAD;
             }
@@ -1400,31 +1545,37 @@ static void check_upload_schedule(void)
         return;
     }
 
-    // åˆ¤æ–­æ˜¯å¦éœ€è¦ä¸Šï¿½?(æ­£å¸¸æ¨¡å¼, åŸºäºæ—¶é—´å¯¹é½)
+    // ÅĞ¶ÏÊÇ·ñĞèÒªÉÏ??(Õı³£Ä£Ê½, »ùÓÚÊ±¼ä¶ÔÆë)
     if(strcmp(g_window.pattern, "dot") == 0)
     {
-        // dotæ¨¡å¼: å½“å‰æ•´ç‚¹å°æ—¶==dottime ï¿½?æœ¬å°æ—¶æœªä¸ŠæŠ¥ ï¿½?è§¦å‘ä¸ŠæŠ¥
+        // dotÄ£Ê½: µ±Ç°Ğ¡Ê±ÃüÖĞÅäÖÃÊ±¼äµã(Î»Í¼)ÇÒ¸Ãµã½ñÈÕÎ´ÉÏ±¨ ¡ú ´¥·¢ÉÏ±¨
         uint32_t now_hhmmss = rtc_get_hhmmss();
         uint8_t current_hour = (uint8_t)(now_hhmmss / 10000);
-        if(current_hour == g_window.dottime && !dot_uploaded_this_hour)
+        rtc_parameter_struct tp;
+        rtc_current_time_get(&tp);
+        uint16_t day_key = (uint16_t)(((tp.year & 0xFF) << 8) | ((tp.month & 0xFF) << 4) | (tp.date & 0xFF));
+
+        // ¿çÈÕ: Çå¿ÕÒÑÉÏ±¨Î»Í¼
+        if(day_key != dot_uploaded_day)
         {
-            printf_debug("[SM] DOT trigger: hour=%d == dottime=%d\r\n",
-                         current_hour, g_window.dottime);
-            dot_uploaded_this_hour = 1;
+            memset(dot_uploaded_mask, 0, sizeof(dot_uploaded_mask));
+            dot_uploaded_day = day_key;
+        }
+
+        if(window_dottime_hit(g_window.dottime_mask, current_hour) &&
+           !window_dottime_hit(dot_uploaded_mask, current_hour))
+        {
+            printf_debug("[SM] DOT trigger: hour=%d (mask hit)\r\n", current_hour);
+            window_dottime_set(dot_uploaded_mask, current_hour);
             ensure_full_init();
             app_state = STATE_UPLOAD;
         }
         else
-        {
-            // è·¨å°æ—¶åé‡ç½®æ ‡å¿—
-            if(current_hour != g_window.dottime)
-                dot_uploaded_this_hour = 0;
             app_state = STATE_SLEEP;
-        }
     }
     else
     {
-        // long/short: åŸºäºæ—¶é—´ç½‘æ ¼åˆ¤æ–­æ˜¯å¦åˆ°è¾¾ä¸ŠæŠ¥æ•´ç‚¹
+        // long/short: »ùÓÚÊ±¼äÍø¸ñÅĞ¶ÏÊÇ·ñµ½´ïÉÏ±¨Õûµã
         uint32_t now_hhmmss = rtc_get_hhmmss();
         uint16_t cur_total_min = (uint16_t)(now_hhmmss / 10000) * 60
                                + (uint16_t)((now_hhmmss / 100) % 100);
@@ -1442,59 +1593,17 @@ static void check_upload_schedule(void)
     }
 }
 
-// ==================== é‡‡é›†ä¼ æ„Ÿï¿½?+ é˜ˆå€¼æ£€ï¿½?====================
+// ==================== ²É¼¯´«¸Ğ??+ ãĞÖµ¼ì??====================
 static void do_collect(void)
 {
     SensorRecord_t record;
     ThresholdResult_t result;
     uint8_t vlp_just_exited = 0;
 
-    // ========== å®šæ—¶å¼€å…³é˜€æ£€æŸ¥ ==========
-    if(g_valve_timing.enabled)
-    {
-        uint32_t now_hhmmss = rtc_get_hhmmss();
-        uint32_t now_sec = hhmmss_to_seconds(now_hhmmss);
-        uint8_t cur_hour = (uint8_t)(now_hhmmss / 10000);
+    // ========== ¶¨Ê±¿ª¹Ø·§¼ì²é (¹«¹²º¯Êı, ×èÈûÁ÷³ÌÄÚÒ²¿É¸´ÓÃ) ==========
+    vtiming_check(0);
 
-        // åˆå¤œé‡ç½®å½“æ—¥æ‰§è¡Œæ ‡å¿— (00:00~00:59, ä¸”æœªé‡ç½®è¿‡)
-        if(cur_hour == 0 && timing_last_reset_hour != 0)
-        {
-            timing_open_done_today  = 0;
-            timing_close_done_today = 0;
-            timing_last_reset_hour  = 0;
-            printf_debug("[SM] VTIMING: daily flags reset\r\n");
-        }
-        else if(cur_hour != 0)
-            timing_last_reset_hour = cur_hour;
-
-        // æ£€æŸ¥å¼€é˜€æ—¶é—´ (å®¹å·®Â±30ç§’)
-        if(!timing_open_done_today && g_valve_timing.open_time > 0)
-        {
-            uint32_t tgt_sec = hhmmss_to_seconds(g_valve_timing.open_time);
-            int32_t diff = (int32_t)now_sec - (int32_t)tgt_sec;
-            if(diff >= 0 && diff <= 30)
-            {
-                printf_debug("[SM] VTIMING: OPEN triggered at %06lu\r\n", now_hhmmss);
-                vtiming_execute_and_report("open");
-                timing_open_done_today = 1;
-            }
-        }
-
-        // æ£€æŸ¥å…³é˜€æ—¶é—´ (å®¹å·®Â±30ç§’)
-        if(!timing_close_done_today && g_valve_timing.close_time > 0)
-        {
-            uint32_t tgt_sec = hhmmss_to_seconds(g_valve_timing.close_time);
-            int32_t diff = (int32_t)now_sec - (int32_t)tgt_sec;
-            if(diff >= 0 && diff <= 30)
-            {
-                printf_debug("[SM] VTIMING: CLOSE triggered at %06lu\r\n", now_hhmmss);
-                vtiming_execute_and_report("close");
-                timing_close_done_today = 1;
-            }
-        }
-    }
-
-    // è®°å½•æœ¬æ¬¡æ­£å¸¸å‘¨æœŸé‡‡é›†çš„åˆ†é’Ÿæˆ³ï¼Œé˜²æ­¢ç§’çº§é«˜é¢‘å®æ—¶ç›‘æµ‹å¾ªç¯åœ¨åŒä¸€åˆ†é’Ÿå†…å¤šæ¬¡å”¤é†’é‡‡ï¿½?
+    // ¼ÇÂ¼±¾´ÎÕı³£ÖÜÆÚ²É¼¯µÄ·ÖÖÓ´Á£¬·ÀÖ¹Ãë¼¶¸ßÆµÊµÊ±¼à²âÑ­»·ÔÚÍ¬Ò»·ÖÖÓÄÚ¶à´Î»½ĞÑ²É??
     {
         uint32_t now_hhmmss = rtc_get_hhmmss();
         last_grid_collect_min = (uint16_t)(now_hhmmss / 10000) * 60
@@ -1505,16 +1614,16 @@ static void do_collect(void)
     g_sensor.voltage = g_sensor.last_normal_voltage;
 
     printf_debug("[SM] COLLECT (buf=%d) V=%.2f S2:P=%.2f T=%.2f err=%d S1:P=%.2f T=%.2f err=%d (ADC=%d)\r\n",
-                 sensor_buf_count() + 1, g_sensor.voltage,
+                 ee_hist_count() + 1, g_sensor.voltage,
                  g_sensor.raw.pressure, g_sensor.raw.temperature, g_sensor.raw.err,
                  g_sensor.raw2.pressure, g_sensor.raw2.temperature, g_sensor.raw2.err,
                  g_need_adc_sampling);
 
-    // å®æ—¶æ¨¡å¼å…³é—­ï¿½? é‡‡é›†å‘¨æœŸå…¼ä½œ LCD åˆ·æ–° (å®æ—¶æ¨¡å¼å¼€å¯æ—¶ï¿½?do_realtime_check åˆ·æ–°)
+    // ÊµÊ±Ä£Ê½¹Ø±Õ?? ²É¼¯ÖÜÆÚ¼æ×÷ LCD Ë¢ĞÂ (ÊµÊ±Ä£Ê½¿ªÆôÊ±??do_realtime_check Ë¢ĞÂ)
     if(g_lcd_active && !g_real_enabled)
         lcd_ui_refresh(&g_sensor.raw, &g_sensor.raw2, g_sensor.voltage);
 
-    // ========== ä¼ æ„Ÿå™¨çŠ¶æ€å˜åŒ–æ£€ï¿½?(å¸¦æ¶ˆï¿½? è¿›æ°”ï¿½?å‡ºæ°”ï¿½? ==========
+    // ========== ´«¸ĞÆ÷×´Ì¬±ä»¯¼ì??(´øÏû?? ½øÆø??³öÆø?? ==========
     {
         uint8_t cur_online  = (g_sensor.raw.err  == PT304D_OK) ? 1 : 0;
         uint8_t cur_online2 = (g_sensor.raw2.err == PT304D_OK) ? 1 : 0;
@@ -1529,7 +1638,7 @@ static void do_collect(void)
                          cur_online2 ? "ON" : "OFF", g_sensor.raw2.err,
                          SENSOR_OFFLINE_DEBOUNCE);
 
-            // ç«‹å³4Gä¸ŠæŠ¥
+            // Á¢¼´4GÉÏ±¨
             {
                 int was_online;
                 int ec_ok = fourG_ensure_ready(&was_online);
@@ -1541,7 +1650,7 @@ static void do_collect(void)
                 fourG_restore(was_online, ec_ok);
             }
 
-            // è¿›æ°”ç«¯ç¦»çº¿æ—¶è·³è¿‡é˜ˆå€¼æ£€æŸ¥å’Œæ•°æ®ç¼“å­˜, ç›´æ¥å›ä¼‘ï¿½?
+            // ½øÆø¶ËÀëÏßÊ±Ìø¹ıãĞÖµ¼ì²éºÍÊı¾İ»º´æ, Ö±½Ó»ØĞİ??
             if(!cur_online)
             {
                 app_state = STATE_SLEEP;
@@ -1550,7 +1659,7 @@ static void do_collect(void)
         }
         else if(!cur_online)
         {
-            // æŒç»­ç¦»çº¿(å«æ¶ˆæŠ–æœŸï¿½? ï¿½?ä¸é‡å¤ä¸Šï¿½? è·³è¿‡é‡‡é›†ç›´æ¥å›ä¼‘ï¿½?
+            // ³ÖĞøÀëÏß(º¬Ïû¶¶ÆÚ?? ??²»ÖØ¸´ÉÏ?? Ìø¹ı²É¼¯Ö±½Ó»ØĞİ??
             printf_debug("[SM] SENSOR still OFFLINE (cnt=%d/%d cnt2=%d/%d), skip\r\n",
                          g_sensor.offline_cnt, SENSOR_OFFLINE_DEBOUNCE,
                          g_sensor.offline_cnt2, SENSOR_OFFLINE_DEBOUNCE);
@@ -1559,23 +1668,23 @@ static void do_collect(void)
         }
     }
 
-    // é˜ˆå€¼æ£€ï¿½?
+    // ãĞÖµ¼ì??
     result = threshold_check(g_sensor.raw.pressure, g_sensor.raw.temperature, g_sensor.voltage, g_sensor.last_pressure_collect, 0, 0);
-    // ç¬¬äºŒè·¯é˜ˆå€¼æ£€æŸ¥ (ä»…åœ¨åŒä¼ æ„Ÿå™¨ä¸”ç¬¬äºŒè·¯åœ¨çº¿æ—¶)
+    // µÚ¶şÂ·ãĞÖµ¼ì²é (½öÔÚË«´«¸ĞÆ÷ÇÒµÚ¶şÂ·ÔÚÏßÊ±)
     if(result == THRESHOLD_OK && g_sensor_count >= 2 && g_sensor.raw2.err == PT304D_OK)
         result = threshold_check2(g_sensor.raw2.pressure, g_sensor.raw2.temperature, g_sensor.last_pressure_collect2, 0);
 
     if(result != THRESHOLD_OK)
     {
-        // ä½ç”µå‹çœç”µæ¨¡ï¿½? å·²è¿›å…¥è¿‡VPROTECTæŠ¥è­¦, åç»­VPROTECTä¸å†é‡å¤æŠ¥è­¦
+        // µÍµçÑ¹Ê¡µçÄ£?? ÒÑ½øÈë¹ıVPROTECT±¨¾¯, ºóĞøVPROTECT²»ÔÙÖØ¸´±¨¾¯
         if(voltage_low_power && result == THRESHOLD_VPROTECT)
         {
             printf_debug("[SM] VLP: still low voltage, skip alarm\r\n");
-            // ä¸è¿›å…¥ALARM, ç»§ç»­èµ°ä½ç”µå‹çœç”µè°ƒåº¦
+            // ²»½øÈëALARM, ¼ÌĞø×ßµÍµçÑ¹Ê¡µçµ÷¶È
         }
         else
         {
-            // é¦–æ¬¡VPROTECTä¼šè¿›å…¥ALARM(å…³é˜€+æŠ¥è­¦), åŒæ—¶æ ‡è®°ä½ç”µå‹æ¨¡ï¿½?
+            // Ê×´ÎVPROTECT»á½øÈëALARM(¹Ø·§+±¨¾¯), Í¬Ê±±ê¼ÇµÍµçÑ¹Ä£??
             if(result == THRESHOLD_VPROTECT && !voltage_low_power)
             {
                 voltage_low_power = 1;
@@ -1589,15 +1698,15 @@ static void do_collect(void)
         }
     }
 
-    // ä½ç”µå‹æ¢ï¿½? ä»¥ä¸‹ä»»ä¸€æ¡ä»¶è§¦å‘é€€ï¿½?VLP
-    //   (a) ç”µå‹å›åˆ° vprotect ä»¥ä¸Š (æ­£å¸¸æ¢å¤)
-    //   (b) spupower.switch è¢«ç”¨æˆ·å…³ï¿½?(ä¸å†æ‰§è¡Œç”µå‹æ£€ï¿½? ä¸èƒ½æ®‹ç•™ VLP çŠ¶æ€é”ï¿½?
+    // µÍµçÑ¹»Ö?? ÒÔÏÂÈÎÒ»Ìõ¼ş´¥·¢ÍË??VLP
+    //   (a) µçÑ¹»Øµ½ vprotect ÒÔÉÏ (Õı³£»Ö¸´)
+    //   (b) spupower.switch ±»ÓÃ»§¹Ø??(²»ÔÙÖ´ĞĞµçÑ¹¼ì?? ²»ÄÜ²ĞÁô VLP ×´Ì¬Ëø??
     if(voltage_low_power && (!g_spupower.enabled || g_sensor.voltage >= g_spupower.protect + 0.15f))
     {
         voltage_low_power = 0;
         config_save_ext();
         vlp_uploaded_this_hour = 0;
-        vlp_just_exited = 1;     // æ ‡è®°: æœ¬æ¬¡ collect ï¿½?VLP å·²é€€ï¿½? éœ€ï¿½?normal ä¸ŠæŠ¥
+        vlp_just_exited = 1;     // ±ê¼Ç: ±¾´Î collect ??VLP ÒÑÍË?? Ğè??normal ÉÏ±¨
         if(!g_spupower.enabled)
             printf_debug("[SM] VLP: spupower disabled by user, exiting low power mode\r\n");
         else
@@ -1605,16 +1714,16 @@ static void do_collect(void)
                          g_sensor.voltage, g_spupower.protect);
     }
 
-    // æ¢å¤æ­£å¸¸ä¸ŠæŠ¥: (a) ä¹‹å‰æŠ¥è­¦è‡ªåŠ¨å…³é˜€ ï¿½?è¿˜åŸé˜€ï¿½?+ alarm:normal
-    //               (b) VLP åˆšé€€ï¿½?ï¿½?alarm:normal (å³ä½¿æ²¡è§¦å‘å…³é˜€, ä¹Ÿé€šçŸ¥å¹³å°è„±ç¦»ä½å‹ä¿æŠ¤)
-    // å…±äº« 4G å¯åœ, é¿å…é‡å¤ cold-start
+    // »Ö¸´Õı³£ÉÏ±¨: (a) Ö®Ç°±¨¾¯×Ô¶¯¹Ø·§ ??»¹Ô­·§??+ alarm:normal
+    //               (b) VLP ¸ÕÍË????alarm:normal (¼´Ê¹Ã»´¥·¢¹Ø·§, Ò²Í¨ÖªÆ½Ì¨ÍÑÀëµÍÑ¹±£»¤)
+    // ¹²Ïí 4G ÆôÍ£, ±ÜÃâÖØ¸´ cold-start
     if((g_valve_alarm_closed || vlp_just_exited) && !voltage_low_power)
     {
         ensure_full_init();
         const char *restore_action = NULL;
         const char *vr = NULL;
 
-        // (a) é˜€é—¨æ¢ï¿½?(ä»…å½“ä¹‹å‰è‡ªåŠ¨å…³é˜€æ—¶æ‰§ï¿½?
+        // (a) ·§ÃÅ»Ö??(½öµ±Ö®Ç°×Ô¶¯¹Ø·§Ê±Ö´??
         if(g_valve_alarm_closed)
         {
             restore_action = (g_valve_pre_alarm_order == 1) ? "open" : "close";
@@ -1622,14 +1731,14 @@ static void do_collect(void)
                          restore_action, g_valve_pre_alarm_order);
             vr = valve_execute(restore_action, 0);
             g_valve_alarm_closed = 0;
-            config_save_ext();   // æŒä¹…ï¿½? æ¸…é™¤æ¢å¤æ ‡å¿—
+            config_save_ext();   // ³Ö¾Ã?? Çå³ı»Ö¸´±êÖ¾
         }
         else if(vlp_just_exited)
         {
             printf_debug("[SM] VLP recovered, publishing normal status\r\n");
         }
 
-        // 4G å¯åœ + å¯¹ç§°æ¢å¤ä¸ŠæŠ¥
+        // 4G ÆôÍ£ + ¶Ô³Æ»Ö¸´ÉÏ±¨
         {
             int was_online;
             int ec_ok = fourG_ensure_ready(&was_online);
@@ -1646,7 +1755,7 @@ static void do_collect(void)
         }
     }
 
-    // æ­£å¸¸: å­˜å…¥ç¼“å†²ï¿½?
+    // Õı³£: ´æÈë»º³å??
     record.pressure = g_sensor.raw.pressure;
     record.temperature = g_sensor.raw.temperature;
     record.pressure2 = g_sensor.raw2.pressure;
@@ -1656,16 +1765,18 @@ static void do_collect(void)
     record.flags = 0;
     memset(record.reserved, 0, sizeof(record.reserved));
 
-    sensor_buf_push(&record);
+    ee_hist_push(record.pressure, record.temperature,
+                 record.pressure2, record.temperature2,
+                 record.voltage, record.flags);
     g_sensor.last_pressure_collect = g_sensor.raw.pressure;
     g_sensor.last_pressure_collect2 = g_sensor.raw2.pressure;
     wakeup_count++;
 
-    // ä¸ŠæŠ¥è°ƒåº¦åˆ¤æ–­
+    // ÉÏ±¨µ÷¶ÈÅĞ¶Ï
     check_upload_schedule();
 }
 
-// ==================== æŠ¥è­¦ç¡®è®¤ ====================
+// ==================== ±¨¾¯È·ÈÏ ====================
 static void do_alarm(void)
 {
     uint8_t i;
@@ -1694,14 +1805,14 @@ static void do_alarm(void)
 
         if(result == THRESHOLD_OK)
         {
-            // æ¢å¤æ­£å¸¸: å¶å‘æŠ–åŠ¨
+            // »Ö¸´Õı³£: Å¼·¢¶¶¶¯
             printf_debug("[SM] ALARM: recovered at recheck %d, false alarm\r\n", i + 1);
             still_abnormal = 0;
             break;
         }
     }
 
-    // æ„é€ è®°ï¿½?
+    // ¹¹Ôì¼Ç??
     record.pressure = g_sensor.raw.pressure;
     record.temperature = g_sensor.raw.temperature;
     record.pressure2 = g_sensor.raw2.pressure;
@@ -1712,22 +1823,22 @@ static void do_alarm(void)
 
     if(still_abnormal)
     {
-        // ç¡®è®¤æŠ¥è­¦
+        // È·ÈÏ±¨¾¯
         record.flags = SENSOR_FLAG_ALARM;
 
-        // åˆ¤æ–­æŠ¥è­¦ç±»å‹ (ï¿½?do_realtime_check/downlink å…±ç”¨ threshold_alarm_type_str)
+        // ÅĞ¶Ï±¨¾¯ÀàĞÍ (??do_realtime_check/downlink ¹²ÓÃ threshold_alarm_type_str)
         alarm_type = threshold_alarm_type_str(result);
 
         printf_debug("[SM] *** ALARM CONFIRMED: %s ***\r\n", alarm_type);
 
-        // Debugä¸²å£æ‰“å°æŠ¥è­¦
+        // Debug´®¿Ú´òÓ¡±¨¾¯
         printf_debug("[SM] ALARM: P=%.2f T=%.2f V=%.2f @%s\r\n",
                      g_sensor.raw.pressure, g_sensor.raw.temperature, g_sensor.voltage, record.timestamp);
 
-        // å¼‚å¸¸å…³é˜€ (å®‰å…¨åŠ¨ä½œ, ä¸ä¾èµ–4Gé€šä¿¡)
+        // Òì³£¹Ø·§ (°²È«¶¯×÷, ²»ÒÀÀµ4GÍ¨ĞÅ)
         const char *vr = alarm_try_close_valve(result);
 
-        // 4Gä¸ŠæŠ¥ (æŠ¥è­¦çŠ¶æ€+å…³é˜€ç»“æœ)
+        // 4GÉÏ±¨ (±¨¾¯×´Ì¬+¹Ø·§½á¹û)
         {
             int was_online;
             int ec_ok = fourG_ensure_ready(&was_online);
@@ -1736,34 +1847,38 @@ static void do_alarm(void)
                 EC801E_PublishAlarmStatus(result, g_sensor.voltage);
                 if(vr)
                     EC801E_PublishValveStatus(vr, g_valve_last_order);
+
+                // ÓÃ»§¶ËMQTTÍ¬²½ÉÏ±¨±¨¾¯Êı¾İ
+                user_mqtt_try_publish();
             }
             fourG_restore(was_online, ec_ok);
         }
     }
     else
     {
-        // å¶å‘æŠ–åŠ¨, æ­£å¸¸è®°å½•
+        // Å¼·¢¶¶¶¯, Õı³£¼ÇÂ¼
         record.flags = 0;
     }
 
-    // å­˜å…¥ç¼“å†²ï¿½?
-    sensor_buf_push(&record);
+    // ´æÈëEEPROMÀúÊ·»º³å
+    ee_hist_push(record.pressure, record.temperature,
+                 record.pressure2, record.temperature2,
+                 record.voltage, record.flags);
     g_sensor.last_pressure_collect = g_sensor.raw.pressure;
     g_sensor.last_pressure_collect2 = g_sensor.raw2.pressure;
     wakeup_count++;
 
-    // ä¸ŠæŠ¥è°ƒåº¦åˆ¤æ–­ (æŠ¥è­¦ä¸ä¸ŠæŠ¥å‘¨æœŸé‡åˆæ—¶, å†å²æ•°æ®ä»éœ€æ‰¹é‡ä¸ŠæŠ¥)
+    // ÉÏ±¨µ÷¶ÈÅĞ¶Ï (±¨¾¯ÓëÉÏ±¨ÖÜÆÚÖØºÏÊ±, ÀúÊ·Êı¾İÈÔĞèÅúÁ¿ÉÏ±¨)
     check_upload_schedule();
 }
 
-// ==================== æ•°æ®ä¸ŠæŠ¥ (æ‰¹é‡é€æ¡, ä¸‰æ¨¡ï¿½? ====================
+// ==================== Êı¾İÉÏ±¨ (ÅúÁ¿ÖğÌõ, ÈıÄ£Ê½) ====================
 static void do_upload(void)
 {
     uint16_t n, i;
-    const SensorRecord_t *rec;
     int is_coldstart = 0;
 
-    // === çª—å£æ£€ï¿½?(dot/VLPæ¨¡å¼ç”±do_collectå·²ç¡®è®¤æ—¶é—´ç‚¹, ç›´æ¥é€šè¿‡) ===
+    // === ´°¿Ú¼ì??(dot/VLPÄ£Ê½ÓÉdo_collectÒÑÈ·ÈÏÊ±¼äµã, Ö±½ÓÍ¨¹ı) ===
     if(!voltage_low_power && strcmp(g_window.pattern, "dot") != 0)
     {
         if(!config_is_active_window())
@@ -1775,34 +1890,43 @@ static void do_upload(void)
     }
 
     printf_debug("[SM] UPLOAD: %d records (pattern=%s%s)\r\n",
-                 sensor_buf_count(), g_window.pattern,
+                 ee_hist_count(), g_window.pattern,
                  voltage_low_power ? " VLP" : "");
 
-    // === å»ºç«‹4Gè¿æ¥ ===
+    // === ½¨Á¢4GÁ¬½Ó ===
     com_lpuart_init();
     trea_delay_ms(100);
 
-    // ä½ç”µå‹çœç”µæ¨¡å¼ / å¼±ä¿¡å·æ¨¡å¼: å¼ºåˆ¶èµ°å†·å¯åŠ¨è·¯å¾„
+    // µÍµçÑ¹Ê¡µçÄ£Ê½ / ÈõĞÅºÅÄ£Ê½: Ç¿ÖÆ×ßÀäÆô¶¯Â·¾¶
     if(voltage_low_power || strcmp(g_window.pattern, "long") != 0 || fourG_weak_signal)
     {
-        // short/dot/VLP/weak_signal: 4Gæ–­ç”µçŠ¶æ€, éœ€å®Œæ•´å¼€æœº
+        // short/dot/VLP/weak_signal: 4G¶Ïµç×´Ì¬, ĞèÍêÕû¿ª»ú
         is_coldstart = 1;
         EC801E_PowerOn();
         if(EC801E_InitAndConnect() != EC_OK)
         {
-            printf_debug("[SM] UPLOAD: cold start failed, power off\r\n");
+            // µ½µã×¢ÍøÊ§°Ü: ¶ÏµçÖØÊÔÒ»´Î; ÈÔÊ§°ÜÔò¶Ïµç, ÀúÊ·Êı¾İÁôÔÚEEPROM, ÏÂ¸öÊ±¼äµãÔÙÉÏ±¨
+            printf_debug("[SM] UPLOAD: cold start failed, retry once...\r\n");
             EC801E_PowerOff();
-            app_state = STATE_SLEEP;
-            return;
+            trea_delay_ms(1000);
+            EC801E_PowerOn();
+            trea_delay_ms(300);
+            if(EC801E_InitAndConnect() != EC_OK)
+            {
+                printf_debug("[SM] UPLOAD: retry failed, power off (data kept in EEPROM)\r\n");
+                EC801E_PowerOff();
+                app_state = STATE_SLEEP;
+                return;
+            }
         }
-        fourG_init_failed = 0;  // è¿æ¥æˆåŠŸ, æ¸…é™¤å¤±è´¥æ ‡å¿—
+        fourG_init_failed = 0;  // Á¬½Ó³É¹¦, Çå³ıÊ§°Ü±êÖ¾
         EC801E_SetPSM(0);
         trea_delay_ms(300);
         report_4g_power_state(1);
     }
     else
     {
-        // longæ¨¡å¼(éVLP, éå¼±ä¿¡å·): 4Gåº”å·²è¿æ¥(QSCLK), ç›´æ¥ç¡®è®¤
+        // longÄ£Ê½(·ÇVLP, ·ÇÈõĞÅºÅ): 4GÓ¦ÒÑÁ¬½Ó(QSCLK), Ö±½ÓÈ·ÈÏ
         if(EC801E_EnsureConnected() != EC_OK)
         {
             printf_debug("[SM] UPLOAD: connect failed, power off\r\n");
@@ -1810,37 +1934,74 @@ static void do_upload(void)
             app_state = STATE_SLEEP;
             return;
         }
-        fourG_init_failed = 0;  // EnsureConnected æˆåŠŸ, æ¸…é™¤å¤±è´¥æ ‡å¿—
+        fourG_init_failed = 0;  // EnsureConnected ³É¹¦, Çå³ıÊ§°Ü±êÖ¾
     }
 
-    // 4Gè¿æ¥æˆåŠŸåæ›´æ–°LCDä¿¡å·å¼ºåº¦
+    // ·§ÃÅ×î¸ßÓÅÏÈ¼¶: ½øÑ­»·Ç°¼ì²éÒ»´Î(¸²¸ÇÀäÆô¶¯/Á¬½ÓÆÚ¼äµ½µãµÄ·§ÃÅÊÂ¼ş)
+    vtiming_check(1);
+
+    // 4GÁ¬½Ó³É¹¦ºó¸üĞÂLCDĞÅºÅÇ¿¶È
     lcd_update_csq();
 
-    // === ç”¨æˆ·ç«¯MQTT: é¢„è¿æ¥ (å†å²æ•°æ®åŒæ­¥ä¸ŠæŠ¥) ===
+    // === ÓÃ»§¶ËMQTT: Ô¤Á¬½Ó (ÀúÊ·Êı¾İÍ¬²½ÉÏ±¨, º¬1´ÎÖØÊÔ) ===
     uint8_t user_mqtt_on = 0;
     if(EC801E_UserMqtt_IsConfigured())
     {
         trea_delay_ms(500);
-        user_mqtt_on = (EC801E_UserMqtt_Connect() == EC_OK);
+        if(EC801E_UserMqtt_Connect() == EC_OK)
+        {
+            user_mqtt_on = 1;
+        }
+        else
+        {
+            printf_debug("[SM] UserMqtt: 1st connect failed, retry...\r\n");
+            trea_delay_ms(1000);
+            user_mqtt_on = (EC801E_UserMqtt_Connect() == EC_OK);
+            if(!user_mqtt_on)
+                printf_debug("[SM] UserMqtt: 2nd connect failed, skip user mqtt\r\n");
+        }
     }
 
-    // === é€æ¡ä¸Šä¼  (åŒé€šé“: ä¸»å¹³å°id=0 + ç”¨æˆ·ç«¯id=1) ===
-    while(sensor_buf_count() > 0)
+    // === ÖğÌõÉÏ´« (Ë«Í¨µÀ: Ö÷Æ½Ì¨id=0 + ÓÃ»§¶Ëid=1, ´ÓEEPROM¶ÁÈ¡) ===
+    while(ee_hist_count() > 0)
     {
+        EeHistRecord_t ee_rec;
+        SensorRecord_t rec;
+        uint8_t rd_ret;
+
         swdt_feed();
-        rec = sensor_buf_get(0);
-        if(rec)
+        // ·§ÃÅ×î¸ßÓÅÏÈ¼¶: Ã¿Ìõ¼ÇÂ¼´¦ÀíÇ°¼ì²é(·ÀÖ¹ÉÏ´«ÍÌµô·§ÃÅÊÂ¼ş)
+        vtiming_check(1);
+        rd_ret = ee_hist_read(0, &ee_rec);
+        if(rd_ret == 0)
         {
-            if(EC801E_PublishSingleRecord(rec) == EC_OK)
+            ee_hist_to_sensor_record(&ee_rec, &rec);
+
+            if(EC801E_PublishSingleRecord(&rec) == EC_OK)
             {
                 if(user_mqtt_on)
                 {
                     trea_delay_ms(300);
-                    EC801E_UserMqtt_PublishRecord(rec);
+                    if(EC801E_UserMqtt_PublishRecord(&rec) != EC_OK)
+                    {
+                        printf_debug("[SM] UserMqtt: publish failed, try reconnect\r\n");
+                        EC801E_UserMqtt_Disconnect();
+                        trea_delay_ms(500);
+                        if(EC801E_UserMqtt_Connect() == EC_OK)
+                        {
+                            trea_delay_ms(300);
+                            EC801E_UserMqtt_PublishRecord(&rec);
+                        }
+                        else
+                        {
+                            printf_debug("[SM] UserMqtt: reconnect failed, disable\r\n");
+                            user_mqtt_on = 0;
+                        }
+                    }
                 }
-                sensor_buf_pop();
+                ee_hist_pop();
 
-                if(sensor_buf_count() > 0)
+                if(ee_hist_count() > 0)
                     trea_delay_ms(one_by_one_delay);
             }
             else
@@ -1851,27 +2012,32 @@ static void do_upload(void)
         }
         else
         {
-            sensor_buf_pop();
+            // CRCĞ£ÑéÊ§°Ü»ò¶ÁÈ¡´íÎó, Ìø¹ıËğ»µ¼ÇÂ¼
+            printf_debug("[SM] UPLOAD: EEPROM read error (ret=%d), skip record\r\n", rd_ret);
+            ee_hist_pop();
         }
     }
 
-    // === ç”¨æˆ·ç«¯MQTT: æ–­å¼€ ===
+    // ·§ÃÅ×î¸ßÓÅÏÈ¼¶: Ñ­»·½áÊøºóÔÙ¼ì²éÒ»´Î(¸²¸ÇÉÏ´«Î²¶Îµ½µãµÄ·§ÃÅÊÂ¼ş)
+    vtiming_check(1);
+
+    // === ÓÃ»§¶ËMQTT: ¶Ï¿ª ===
     if(user_mqtt_on)
     {
         trea_delay_ms(500);
         EC801E_UserMqtt_Disconnect();
     }
 
-    // ä¸ŠæŠ¥æ±‡æ€»çŠ¶æ€ (ä¼ æ„Ÿå™¨åœ¨çº¿+ä¿¡å·+å‹åŠ›æ¸©åº¦çŠ¶æ€+é˜€é—¨+IP+ç”µå‹)
+    // ÉÏ±¨»ã×Ü×´Ì¬ (´«¸ĞÆ÷ÔÚÏß+ĞÅºÅ+Ñ¹Á¦ÎÂ¶È×´Ì¬+·§ÃÅ+IP+µçÑ¹)
     trea_delay_ms(200);
     publish_upload_summary();
     printf_debug("[SM] upload summary published\r\n");
 
-    // ä¸Šä¼ æµç¨‹ç»“æŸï¼Œå¤ä½å”¤é†’å‘¨æœŸç»Ÿè®¡è®¡ï¿½?
+    // ÉÏ´«Á÷³Ì½áÊø£¬¸´Î»»½ĞÑÖÜÆÚÍ³¼Æ¼Æ??
     wakeup_count = 0;
-    printf_debug("[SM] UPLOAD finished, remaining records in buffer: %d\r\n", sensor_buf_count());
+    printf_debug("[SM] UPLOAD finished, remaining records in buffer: %d\r\n", ee_hist_count());
 
-    // === RTCæ ¡å‡†: åˆ©ç”¨4Gåœ¨çº¿ä»ç½‘ç»œåŒæ­¥æ—¶ï¿½?===
+    // === RTCĞ£×¼: ÀûÓÃ4GÔÚÏß´ÓÍøÂçÍ¬²½Ê±??===
     {
         trea_delay_ms(200);
         EC_Status_t sync_ret = EC801E_SyncTime();
@@ -1881,28 +2047,36 @@ static void do_upload(void)
             printf_debug("[SM] RTC calibration failed (non-critical)\r\n");
     }
 
-    // === æ¨¡å¼ç‰¹å®šæ”¶å°¾ ===
+    // === Ä£Ê½ÌØ¶¨ÊÕÎ² ===
     if(is_coldstart)
     {
-        // å†·å¯åŠ¨æ¨¡å¼(VLP/short/dot/weak_signal): ç­‰å¾…20sæ¥æ”¶å¹³å°ä¸‹å‘æŒ‡ä»¤
+        // ÀäÆô¶¯Ä£Ê½(VLP/short/dot/weak_signal): µÈ´ı20s½ÓÊÕÆ½Ì¨ÏÂ·¢Ö¸Áî
+        // Ã¿5s¼ì²éÒ»´Î·§ÃÅ, ·ÀÖ¹µÈ´ıÆÚ¼äÍÌµô·§ÃÅÊÂ¼ş
         printf_debug("[SM] Waiting 20s for downlink...\r\n");
-        trea_delay_ms(20000);
+        {
+            uint8_t w;
+            for(w = 0; w < 4; w++)
+            {
+                trea_delay_ms(5000);
+                vtiming_check(1);
+            }
+        }
         {
             uint8_t dl_count = drain_pending_downlink();
             if(dl_count > 0)
                 printf_debug("[SM] Processed %d downlink msg(s)\r\n", dl_count);
         }
 
-        // longæ¨¡å¼å¼±ä¿¡å·å†·å¯åŠ¨: æ£€æŸ¥ä¿¡å·æ˜¯å¦æ¢å¤, å†³å®šæ˜¯å¦ä¿æŒåœ¨çº¿
+        // longÄ£Ê½ÈõĞÅºÅÀäÆô¶¯: ¼ì²éĞÅºÅÊÇ·ñ»Ö¸´, ¾ö¶¨ÊÇ·ñ±£³ÖÔÚÏß
         if(fourG_weak_signal && strcmp(g_window.pattern, "long") == 0)
         {
             if(fourG_signal_check_and_decide())
             {
-                // ä¿¡å·æ¢å¤, ä¿æŒ4Gåœ¨çº¿(longæ¨¡å¼æ­£å¸¸è¡Œä¸º)
+                // ĞÅºÅ»Ö¸´, ±£³Ö4GÔÚÏß(longÄ£Ê½Õı³£ĞĞÎª)
                 EC801E_SetPSM(1);
                 printf_debug("[SM] UPLOAD: signal OK, keep 4G online\r\n");
             }
-            // else: å†…éƒ¨å·²æ–­ç”µ
+            // else: ÄÚ²¿ÒÑ¶Ïµç
         }
         else
         {
@@ -1912,11 +2086,11 @@ static void do_upload(void)
     }
     else
     {
-        // long(éå¼±ä¿¡å·): æ£€æŸ¥ä¿¡å·å†³å®šå»ç•™
+        // long(·ÇÈõĞÅºÅ): ¼ì²éĞÅºÅ¾ö¶¨È¥Áô
         trea_delay_ms(500);
         if(fourG_signal_check_and_decide())
             EC801E_SetPSM(1);
-        // else: ä¿¡å·å¼±, å†…éƒ¨å·²æ–­ç”µ
+        // else: ĞÅºÅÈõ, ÄÚ²¿ÒÑ¶Ïµç
     }
 
     app_state = STATE_SLEEP;
@@ -1924,7 +2098,7 @@ static void do_upload(void)
 
 
 
-// ==================== å¤„ç†MQTTä¸‹å‘æŒ‡ä»¤ (â˜…æœ€é«˜ä¼˜å…ˆçº§) ====================
+// ==================== ´¦ÀíMQTTÏÂ·¢Ö¸Áî (¡ï×î¸ßÓÅÏÈ¼¶) ====================
 static void do_downlink(void)
 {
     uint8_t msg_count;
@@ -1946,41 +2120,41 @@ static void do_downlink(void)
         printf_debug("[SM] Processed %d msg(s)\r\n", msg_count);
     }
 
-    // é‡æ–°å¯ç”¨æ¨¡å—ä¼‘çœ  (æ£€æŸ¥ä¿¡å·å†³å®šæ˜¯å¦ä¿æŒåœ¨çº¿)
+    // ÖØĞÂÆôÓÃÄ£¿éĞİÃß (¼ì²éĞÅºÅ¾ö¶¨ÊÇ·ñ±£³ÖÔÚÏß)
     trea_delay_ms(500);
     if(fourG_signal_check_and_decide())
         EC801E_SetPSM(1);
-    // else: ä¿¡å·å¼±, å†…éƒ¨å·²æ–­ç”µ
+    // else: ĞÅºÅÈõ, ÄÚ²¿ÒÑ¶Ïµç
 
     app_state = STATE_SLEEP;
 }
 
-// ==================== BLE OTA çŠ¶æ€å¤„ï¿½?====================
+// ==================== BLE OTA ×´Ì¬´¦??====================
 static void do_ble_ota(void)
 {
-    /* ç¬¬ä¸€é˜¶æ®µ: ç­‰å¾…æ‰‹æœºè¿æ¥BLE (PD2=LOW) */
+    /* µÚÒ»½×¶Î: µÈ´ıÊÖ»úÁ¬½ÓBLE (PD2=LOW) */
     if(g_ble_ota.state == BLE_OTA_WAIT_CONNECT)
     {
         if(ble_link_is_connected())
         {
-            /* æ‰‹æœºå·²è¿æ¥BLEæ¨¡å— -> åˆå§‹åŒ–UARTå¼€å§‹æ¥æ”¶OTAæŒ‡ä»¤ */
+            /* ÊÖ»úÒÑÁ¬½ÓBLEÄ£¿é -> ³õÊ¼»¯UART¿ªÊ¼½ÓÊÕOTAÖ¸Áî */
             printf_debug("[SM] BLE connected (PD2=LOW), init UART4\r\n");
             ble_uart_init();
             ble_uart_rx_flush();
             g_ble_ota.state = BLE_OTA_IDLE;
-            g_ble_ota.last_rx_ms = trea_millis();  /* é‡ç½®è¶…æ—¶è®¡æ—¶ */
+            g_ble_ota.last_rx_ms = trea_millis();  /* ÖØÖÃ³¬Ê±¼ÆÊ± */
             trea_delay_ms(500);
             printf_debug("[SM] BLE connected (PD2=LOW), init UART4---OK\r\n");
         }
         else
         {
-            /* è¿˜æœªè¿æ¥, ä»…æ£€æŸ¥è¶…æ—¶ (ble_ota_processå†…éƒ¨å¤„ç†) */
+            /* »¹Î´Á¬½Ó, ½ö¼ì²é³¬Ê± (ble_ota_processÄÚ²¿´¦Àí) */
             ble_ota_process();
         }
     }
     else
     {
-        /* ç¬¬äºŒé˜¶æ®µ: å·²è¿æ¥, æ­£å¸¸OTAæµç¨‹ */
+        /* µÚ¶ş½×¶Î: ÒÑÁ¬½Ó, Õı³£OTAÁ÷³Ì */
         ble_ota_process();
 
         if(g_ble_ota.state == BLE_OTA_DOWNLOADING)
@@ -1988,8 +2162,40 @@ static void do_ble_ota(void)
             ota_wdt_feed();
         }
     }
+	
+    /* °´¼ü¼ì²â: 3Á¬°´¹Ø±ÕÀ¶ÑÀ (Óë3Á¬°´¿ªÆô¶Ô³Æ) */
+    if(button_is_pressed())
+    {
+        uint8_t ble_press_count = 1;
+        uint16_t ble_wait;
 
-    /* é€€å‡ºæ¡ä»¶: OTAé”™è¯¯/è¶…æ—¶, æˆ–è“ç‰™è¢«å…³é—­ */
+        while(button_is_pressed()) trea_delay_ms(20);
+        trea_delay_ms(30);
+
+        while(ble_press_count < 3)
+        {
+            uint8_t ble_got = 0;
+            for(ble_wait = 0; ble_wait < 500; ble_wait += 20)
+            {
+                trea_delay_ms(20);
+                if(button_is_pressed()) { ble_got = 1; break; }
+            }
+            if(!ble_got) break;
+            ble_press_count++;
+            while(button_is_pressed()) trea_delay_ms(20);
+            trea_delay_ms(30);
+        }
+
+        if(ble_press_count >= 3)
+        {
+            printf_debug("[SM] BLE_OTA: 3-press detected, turning off BLE\r\n");
+            g_bt_on = 0;
+            gpio_bit_reset(GPIOC, GPIO_PIN_12);
+            if(g_lcd_active) slcd_seg_icon_display(SLCD_ICON_LY, RESET);
+        }
+    }
+
+    /* ÍË³öÌõ¼ş: OTA´íÎó/³¬Ê±, »òÀ¶ÑÀ±»¹Ø±Õ */
     if(g_ble_ota.state == BLE_OTA_ERROR || !g_bt_on)
     {
         printf_debug("[SM] BLE_OTA exit: state=%d, bt=%d\r\n", g_ble_ota.state, g_bt_on);
@@ -2000,10 +2206,10 @@ static void do_ble_ota(void)
         }
         app_state = STATE_SLEEP;
     }
-    /* æ³¨: OTA_COMPLETEä¸ä¼šåˆ°è¾¾è¿™é‡Œ, handle_end()å·²è°ƒç”¨NVIC_SystemReset() */
+    /* ×¢: OTA_COMPLETE²»»áµ½´ïÕâÀï, handle_end()ÒÑµ÷ÓÃNVIC_SystemReset() */
 }
 
-// ==================== Debugä¸²å£å‘½ä»¤(éœ€è¦ç¡¬ä»¶ä¸Šä¸‹æ–‡) ====================
+// ==================== Debug´®¿ÚÃüÁî(ĞèÒªÓ²¼şÉÏÏÂÎÄ) ====================
 static void debug_check_cmd(void)
 {
     static char line_buf[512];
@@ -2013,17 +2219,18 @@ static void debug_check_cmd(void)
     {
         printf_debug("[DBG] %s\r\n", line_buf);
 
-        // ---- éœ€è¦main.cç¡¬ä»¶ä¸Šä¸‹æ–‡çš„å‘½ä»¤ ----
+        // ---- ĞèÒªmain.cÓ²¼şÉÏÏÂÎÄµÄÃüÁî ----
         if(strcmp(line_buf, "status") == 0)
         {
             const char *state_names[] = {"INIT","SLEEP","WAKEUP","COLLECT","UPLOAD","DOWNLINK","ALARM","BLE_OTA"};
             printf_debug("  state=%s wakeup=%d buf=%d\r\n",
                          (app_state <= STATE_BLE_OTA) ? state_names[app_state] : "?",
-                         wakeup_count, sensor_buf_count());
+                         wakeup_count, ee_hist_count());
             printf_debug("  P=%.2f T=%.2f V=%.2f last_Pc=%.2f last_Pr=%.2f\r\n",
                          g_sensor.raw.pressure, g_sensor.raw.temperature, g_sensor.voltage, g_sensor.last_pressure_collect, g_sensor.last_pressure_realtime);
             printf_debug("  valve=%d abnormal=%s\r\n", g_valve_last_order, g_abnormal_close);
             printf_debug("  4G: user_off=%d init_fail=%d weak_sig=%d\r\n", fourG_user_off, fourG_init_failed, fourG_weak_signal);
+            printf_debug("  BLE: on=%d\r\n", g_bt_on);
             printf_debug("  PT304D err=%d stat=0x%02X\r\n", g_sensor.raw.err, g_sensor.raw.stat_raw);
             continue;
         }
@@ -2063,11 +2270,16 @@ static void debug_check_cmd(void)
         if(strcmp(line_buf, "sim") == 0)
         {
             char csq[8] = {0}, iccid[32] = {0}, imei[24] = {0};
+            int rsrp = 0, sinr = 0;
+            uint8_t cereg = 0;
             EC801E_Wakeup();
             EC801E_QueryCSQ(csq, sizeof(csq));
+            EC801E_QueryQCSQ(&rsrp, &sinr);
+            EC801E_QueryCEREG(&cereg);
             EC801E_QueryICCID(iccid, sizeof(iccid));
             EC801E_QueryIMEI(imei, sizeof(imei));
-            printf_debug("  CSQ=%s ICCID=%s IMEI=%s\r\n", csq, iccid, imei);
+            printf_debug("  CSQ=%s RSRP=%d SINR=%d CEREG=%d\r\n", csq, rsrp, sinr, cereg);
+            printf_debug("  ICCID=%s IMEI=%s\r\n", iccid, imei);
             continue;
         }
         if(strcmp(line_buf, "restart") == 0)
@@ -2078,9 +2290,9 @@ static void debug_check_cmd(void)
         }
         if(strncmp(line_buf, "valve:", 6) == 0)
         {
-            const char *action = line_buf + 6;  // "open" ï¿½?"close"
+            const char *action = line_buf + 6;  // "open" ??"close"
             const char *result = valve_execute(action, 1);
-            // ç”¨æˆ·ä¸»åŠ¨æ“ä½œæ¸…é™¤æŠ¥è­¦æ¢å¤æ ‡å¿—
+            // ÓÃ»§Ö÷¶¯²Ù×÷Çå³ı±¨¾¯»Ö¸´±êÖ¾
             if(g_valve_alarm_closed)
             {
                 g_valve_alarm_closed = 0;
@@ -2093,7 +2305,7 @@ static void debug_check_cmd(void)
         }
         if(strncmp(line_buf, "first_ip:", 9) == 0)
         {
-            // æ ¼å¼: first_ip:120.78.220.171.1883
+            // ¸ñÊ½: first_ip:120.78.220.171.1883
             char ip_buf[MQTT_FIELD_MAX];
             strncpy(ip_buf, line_buf + 9, sizeof(ip_buf) - 1);
             ip_buf[sizeof(ip_buf) - 1] = '\0';
@@ -2116,7 +2328,7 @@ static void debug_check_cmd(void)
         }
         if(strncmp(line_buf, "scend_ip:", 9) == 0)
         {
-            // æ ¼å¼: scend_ip:120.78.220.171.1883
+            // ¸ñÊ½: scend_ip:120.78.220.171.1883
             char ip_buf[MQTT_FIELD_MAX];
             strncpy(ip_buf, line_buf + 9, sizeof(ip_buf) - 1);
             ip_buf[sizeof(ip_buf) - 1] = '\0';
@@ -2146,7 +2358,7 @@ static void debug_check_cmd(void)
         {
             printf_debug("  4G power on\r\n");
             fourG_user_off = 0;
-            fourG_weak_signal = 0;  // æ‰‹åŠ¨å¼€æœºæ¸…é™¤å¼±ä¿¡å·æ ‡å¿—
+            fourG_weak_signal = 0;  // ÊÖ¶¯¿ª»úÇå³ıÈõĞÅºÅ±êÖ¾
             com_lpuart_init();
             trea_delay_ms(100);
             EC801E_PowerOn();
@@ -2187,7 +2399,7 @@ static void debug_check_cmd(void)
         }
         if(strcmp(line_buf, "buf") == 0)
         {
-            printf_debug("  sensor_buf: %d records\r\n", sensor_buf_count());
+            printf_debug("  ee_hist: %d records\r\n", ee_hist_count());
             continue;
         }
         if(strcmp(line_buf, "time") == 0)
@@ -2196,26 +2408,29 @@ static void debug_check_cmd(void)
             continue;
         }
 
-        // ---- ä¸éœ€è¦ç¡¬ä»¶ä¸Šä¸‹æ–‡çš„å‘½ï¿½? äº¤ç»™eeprom_config.cå¤„ç† ----
+        // ---- ²»ĞèÒªÓ²¼şÉÏÏÂÎÄµÄÃü?? ½»¸øeeprom_config.c´¦Àí ----
         if(config_parse_and_apply(line_buf) == 0)
             printf_debug("[DBG] Unknown: %s\r\n", line_buf);
     }
 }
 
-// ==================== ä¸»å‡½ï¿½?====================
+// ==================== Ö÷º¯??====================
 int main(void)
 {
-    SensorRecord_t init_record;		//å•æ¡ä¼ æ„Ÿå™¨è®°ï¿½?
+    SensorRecord_t init_record;		//µ¥Ìõ´«¸ĞÆ÷¼Ç??
 
     // ==================== STATE_INIT ====================
     sys_init();
-    // è½¯ä»¶çœ‹é—¨ï¿½? SysTick å·²åœ¨ sys_init å†…å¯ï¿½? å¯ç”¨ä»¥ä¿æŠ¤åï¿½?4G è”ç½‘/ä¸ŠæŠ¥ç­‰é˜»å¡æµï¿½?
+	
+	PT304D_Init(PT304D_SENSOR_1);
+    PT304D_Init(PT304D_SENSOR_2);
+    // Èí¼ş¿´ÃÅ?? SysTick ÒÑÔÚ sys_init ÄÚÆô?? ÆôÓÃÒÔ±£»¤ºó??4G ÁªÍø/ÉÏ±¨µÈ×èÈûÁ÷??
     swdt_enable(SWDT_TIMEOUT_MS);
     com_lpuart_init();
     lpuart_wakeup_init();
 	printf_debug("\r\n[OTA] yes%s \r\n", APP_FIRMWARE_VERSION);
 	
-	// 4Gå¼€ï¿½?+ æ³¨ç½‘ + MQTTè¿æ¥ + keepalive + æ—¶é—´åŒæ­¥ + QSCLK
+	// 4G¿ª??+ ×¢Íø + MQTTÁ¬½Ó + keepalive + Ê±¼äÍ¬²½ + QSCLK
     EC801E_PowerOn();
 	
     config_load_all();
@@ -2225,10 +2440,11 @@ int main(void)
     rtc_init_all();
     rtc_alarm_wakeup_init();
 	
-    PT304D_Init(PT304D_SENSOR_2);
-    sensor_buf_init();
+	
+	
+    ee_hist_init();
 
-    // SLCDåˆå§‹ï¿½?(å¿…é¡»åœ¨rtc_init_allä¹‹å, LXTALå·²é…ï¿½?
+    // SLCD³õÊ¼??(±ØĞëÔÚrtc_init_allÖ®ºó, LXTALÒÑÅä??
     if(g_lcd_enabled) { slcd_seg_configuration(); lcd_ui_init(); g_lcd_active = 1; g_lcd_on_hhmmss = rtc_get_hhmmss(); }
 
     printf_debug("\r\n[OTA] yes%s \r\n", APP_FIRMWARE_VERSION);
@@ -2238,9 +2454,11 @@ int main(void)
     printf_debug("  Collect: %dmin  Upload: %dmin (grid-aligned)\r\n",
                  g_interval.collect_interval_min,
                  g_interval.upload_interval_min);
-    printf_debug("  Window: pattern=%s start=%s stop=%s er=%d dot=%d\r\n",
+    char dot_str5[96];
+    window_dottime_to_str(g_window.dottime_mask, dot_str5, sizeof(dot_str5));
+    printf_debug("  Window: pattern=%s start=%s stop=%s er=%d dot=[%s]\r\n",
                  g_window.pattern, g_window.start, g_window.stop,
-                 g_window.end_result, g_window.dottime);
+                 g_window.end_result, dot_str5);
     printf_debug("  VPTH en=%d ppmax=%.1f pmax=%.1f ppmin=%.1f pmin=%.1f mut=%.1f shock=%.1f\r\n",
                  g_pthreshold.enabled, g_pthreshold.ppmax, g_pthreshold.pmax,
                  g_pthreshold.ppmin, g_pthreshold.pmin,
@@ -2254,29 +2472,29 @@ int main(void)
     printf_debug("  Keepalive: %d s\r\n", config_get_keepalive());
     printf_debug("========================================\r\n");
 
-    // 4Gå¼€æœºå‰æ£€æŸ¥debugä¸²å£æ˜¯å¦æœ‰å¾…å¤„ç†å‘½ä»¤
+    // 4G¿ª»úÇ°¼ì²édebug´®¿ÚÊÇ·ñÓĞ´ı´¦ÀíÃüÁî
     config_check_cmd();
 
-    // 4Gå¼€ï¿½?+ æ³¨ç½‘ + MQTTè¿æ¥ + keepalive + æ—¶é—´åŒæ­¥ + QSCLK
+    // 4G¿ª??+ ×¢Íø + MQTTÁ¬½Ó + keepalive + Ê±¼äÍ¬²½ + QSCLK
     uint8_t init_4g_ok = (EC801E_InitAndConnect() == EC_OK);
 
     if(init_4g_ok)
     {
-//        // InitAndConnectæœ«å°¾å¯ç”¨äº†QSCLKä¼‘çœ , è¿™é‡Œå…ˆç¦ç”¨ä»¥ç¡®ä¿åç»­ATæŸ¥è¯¢æˆåŠŸ
+//        // InitAndConnectÄ©Î²ÆôÓÃÁËQSCLKĞİÃß, ÕâÀïÏÈ½ûÓÃÒÔÈ·±£ºóĞøAT²éÑ¯³É¹¦
 //        trea_delay_ms(300);
 
-        // 4Gè¿æ¥å®Œæˆ, æ£€æŸ¥debugä¸²å£å‘½ä»¤
+        // 4GÁ¬½ÓÍê³É, ¼ì²édebug´®¿ÚÃüÁî
         config_check_cmd();
 
-        // ç”¨æˆ·ç«¯MQTTè¿æ¥ (id=1, ä¸æœ¬åœ°æœåŠ¡å™¨åŒé˜¶æ®µå»ºç«‹)
+        // ÓÃ»§¶ËMQTTÁ¬½Ó (id=1, Óë±¾µØ·şÎñÆ÷Í¬½×¶Î½¨Á¢)
         if(EC801E_UserMqtt_IsConfigured())
             EC801E_UserMqtt_Connect();
         report_4g_power_state(1);
 
-        // 4Gè¿æ¥åæ›´æ–°LCDä¿¡å·å¼ºåº¦å›¾æ ‡
+        // 4GÁ¬½Óºó¸üĞÂLCDĞÅºÅÇ¿¶ÈÍ¼±ê
         lcd_update_csq();
 
-        // è”ç½‘æˆåŠŸèœ‚é¸£æç¤º
+        // ÁªÍø³É¹¦·äÃùÌáÊ¾
         buzzer_beep(2, 200);
     }
     else
@@ -2285,15 +2503,16 @@ int main(void)
         fourG_init_failed = 1;
     }
 
-    // OTAå‰æ£€æŸ¥debugä¸²å£å‘½ä»¤
+    // OTAÇ°¼ì²édebug´®¿ÚÃüÁî
     config_check_cmd();
 
-    // === OTA å¯åŠ¨å›æ‰§: ï¿½?InfoBlock æ˜¾ç¤ºä¸Šæ¬¡å‡çº§ SUCCESS/FAILED, ä¸ŠæŠ¥ mqttUpgradeReply ===
+    // === OTA Æô¶¯»ØÖ´: ??InfoBlock ÏÔÊ¾ÉÏ´ÎÉı¼¶ SUCCESS/FAILED, ÉÏ±¨ mqttUpgradeReply ===
     ota_app_report_boot_status();
 
-    // é¦–æ¬¡é‡‡é›†+å­˜å…¥ç¼“å†²+ä¸ŠæŠ¥
+    // Ê×´Î²É¼¯+´æÈë»º³å+ÉÏ±¨
+	trea_delay_ms(50);
     PT304D_CollectAll((g_sensor_count >= 2) ? &g_sensor.raw2 : NULL, &g_sensor.raw);
-	// é¦–æ¬¡é‡‡é›†ååˆ·æ–°LCDæ˜¾ç¤º
+	// Ê×´Î²É¼¯ºóË¢ĞÂLCDÏÔÊ¾
     if(g_lcd_active) lcd_ui_refresh(&g_sensor.raw, &g_sensor.raw2, g_sensor.voltage);
     trea_delay_ms(50);
     sensor_sample_voltage(1, 3.6f);
@@ -2306,7 +2525,9 @@ int main(void)
     rtc_get_time_str(init_record.timestamp, sizeof(init_record.timestamp));
     init_record.flags = 0;
     memset(init_record.reserved, 0, sizeof(init_record.reserved));
-    sensor_buf_push(&init_record);
+    ee_hist_push(init_record.pressure, init_record.temperature,
+                 init_record.pressure2, init_record.temperature2,
+                 init_record.voltage, init_record.flags);
     g_sensor.last_pressure_collect  = g_sensor.raw.pressure;
     g_sensor.last_pressure_realtime = g_sensor.raw.pressure;
     g_sensor.last_pressure_collect2  = g_sensor.raw2.pressure;
@@ -2319,17 +2540,17 @@ int main(void)
 
     
 
-    // æ ¹æ®é¦–æ¬¡é‡‡é›†ç»“æœä¿®æ­£ prev_online (æ— è®º4Gæ˜¯å¦æˆåŠŸ, é˜²æ­¢å®æ—¶å”¤é†’è¯¯åˆ¤çŠ¶æ€å˜åŒ–)
+    // ¸ù¾İÊ×´Î²É¼¯½á¹ûĞŞÕı prev_online (ÎŞÂÛ4GÊÇ·ñ³É¹¦, ·ÀÖ¹ÊµÊ±»½ĞÑÎóÅĞ×´Ì¬±ä»¯)
     g_sensor.prev_online  = (g_sensor.raw.err  == PT304D_OK) ? 1 : 0;
     g_sensor.prev_online2 = (g_sensor.raw2.err == PT304D_OK) ? 1 : 0;
 
-    // ==================== å¯åŠ¨æ‰¹é‡ä¸ŠæŠ¥ (ä»…4Gè¿æ¥æˆåŠŸæ—¶) ====================
+    // ==================== Æô¶¯ÅúÁ¿ÉÏ±¨ (½ö4GÁ¬½Ó³É¹¦Ê±) ====================
     if(!init_4g_ok) goto init_skip_report;
 
     EC801E_PublishSensorData(&g_sensor.raw, g_sensor.voltage);
     trea_delay_ms(500);
 
-    // ï¿½?1: restart=1 + valve_last_order
+    // ??1: restart=1 + valve_last_order
     {
         char v_order[4];
         snprintf(v_order, sizeof(v_order), "%d", g_valve_last_order);
@@ -2343,12 +2564,22 @@ int main(void)
     }
     trea_delay_ms(500);
 
-    // ï¿½?2: è®¾å¤‡ä¿¡æ¯ (csq + soft-version + ICCID + IMEI)
+    // °ü2: Éè±¸ĞÅÏ¢ (csq + rsrp + sinr + cereg + soft-version + ICCID + IMEI)
     {
-        static char info_json[380];
+        static char info_json[512];
         char csq[8] = {0}, iccid[32] = {0}, imei[24] = {0};
+        char rsrp_str[8] = {0}, sinr_str[8] = {0}, cereg_str[4] = {0};
+        int rsrp = 0, sinr = 0;
+        uint8_t cereg = 0;
         EC801E_Wakeup();
         EC801E_QueryCSQ(csq, sizeof(csq));
+        if(EC801E_QueryQCSQ(&rsrp, &sinr) == EC_OK)
+        {
+            snprintf(rsrp_str, sizeof(rsrp_str), "%d", rsrp);
+            snprintf(sinr_str, sizeof(sinr_str), "%d", sinr);
+        }
+        EC801E_QueryCEREG(&cereg);
+        snprintf(cereg_str, sizeof(cereg_str), "%d", cereg);
         trea_delay_ms(200);
         EC801E_QueryICCID(iccid, sizeof(iccid));
         trea_delay_ms(200);
@@ -2357,18 +2588,23 @@ int main(void)
         rtc_get_time_str(info_ts, sizeof(info_ts));
         snprintf(info_json, sizeof(info_json),
             "[{\"id\":\"csq\",\"value\":\"%s\",\"ts\":\"%s\",\"remark\":\"\"},"
+						"{\"id\":\"csq_csq\",\"value\":\"%s\",\"ts\":\"%s\",\"remark\":\"\"},"
+            "{\"id\":\"csq_rsrp\",\"value\":\"%s\",\"ts\":\"%s\",\"remark\":\"\"},"
+            "{\"id\":\"csq_sinr\",\"value\":\"%s\",\"ts\":\"%s\",\"remark\":\"\"},"
             "{\"id\":\"soft-version\",\"value\":\"%s\",\"ts\":\"%s\",\"remark\":\"\"},"
             "{\"id\":\"ICCID\",\"value\":\"%s\",\"ts\":\"%s\",\"remark\":\"\"},"
             "{\"id\":\"IMEI\",\"value\":\"%s\",\"ts\":\"%s\",\"remark\":\"\"}]",
-            csq, info_ts, APP_FIRMWARE_VERSION, info_ts, iccid, info_ts, imei, info_ts);
+            csq, info_ts, csq, info_ts, rsrp_str, info_ts, sinr_str, info_ts, 
+            APP_FIRMWARE_VERSION, info_ts, iccid, info_ts, imei, info_ts);
         EC801E_PublishRawJson(info_json);
-        printf_debug("[SM] Device info:\r\n CSQ=%s\r\n ICCID=%s\r\n IMEI=%s\r\n", csq, iccid, imei);
+        printf_debug("[SM] Device info:\r\n CSQ=%s RSRP=%s SINR=%s CEREG=%s\r\n ICCID=%s\r\n IMEI=%s\r\n",
+                     csq, rsrp_str, sinr_str, cereg_str, iccid, imei);
     }
     trea_delay_ms(500);
 
-    // ï¿½?3: ä¼ æ„Ÿå™¨åœ¨çº¿çŠ¶ï¿½?(è¿›æ°”+å‡ºæ°”ï¿½?å­—æ®µ)
+    // ??3: ´«¸ĞÆ÷ÔÚÏß×´??(½øÆø+³öÆø??×Ö¶Î)
     {
-//        publish_sensor_status();   // rtu_have/status Ã— 2 (ä¸çŠ¶æ€æœºå„å¤„å…±ç”¨)
+//        publish_sensor_status();   // rtu_have/status ¡Á 2 (Óë×´Ì¬»ú¸÷´¦¹²ÓÃ)
 		publish_upload_summary();
         g_sensor.prev_online  = (g_sensor.raw.err  == PT304D_OK) ? 1 : 0;
         g_sensor.prev_online2 = (g_sensor.raw2.err == PT304D_OK) ? 1 : 0;
@@ -2376,7 +2612,7 @@ int main(void)
     trea_delay_ms(500);
 
 
-    // === ç”¨æˆ·ç«¯MQTTå‘å¸ƒ (id=1, è¿æ¥å·²åœ¨å¯åŠ¨é˜¶æ®µå»ºç«‹) ===
+    // === ÓÃ»§¶ËMQTT·¢²¼ (id=1, Á¬½ÓÒÑÔÚÆô¶¯½×¶Î½¨Á¢) ===
     if(EC801E_UserMqtt_IsConfigured())
     {
         trea_delay_ms(300);
@@ -2388,7 +2624,7 @@ int main(void)
 init_skip_report:
     if(init_4g_ok)
     {
-        // é¦–æ¬¡å¯åŠ¨ä¹Ÿæ£€æŸ¥ä¿¡å·: å¼±ä¿¡å·ç›´æ¥æ–­ç”µ, é¿å…æ— æ•ˆå¿ƒè·³
+        // Ê×´ÎÆô¶¯Ò²¼ì²éĞÅºÅ: ÈõĞÅºÅÖ±½Ó¶Ïµç, ±ÜÃâÎŞĞ§ĞÄÌø
         if(!fourG_signal_check_and_decide())
             printf_debug("[SM] INIT: weak signal, 4G powered off\r\n");
         else
@@ -2398,7 +2634,7 @@ init_skip_report:
         EC801E_PowerOff();
     wakeup_count = 0;
 
-    // INITç»“æŸ: å¦‚æœ spupower å…³é—­æˆ–ç”µå‹å·²æ¢å¤, ç«‹å³é€€å‡ºæ®‹ç•™çš„ VLP çŠ¶æ€
+    // INIT½áÊø: Èç¹û spupower ¹Ø±Õ»òµçÑ¹ÒÑ»Ö¸´, Á¢¼´ÍË³ö²ĞÁôµÄ VLP ×´Ì¬
     if(voltage_low_power && (!g_spupower.enabled || g_sensor.voltage >= g_spupower.protect + 0.15f))
     {
         voltage_low_power = 0;
@@ -2406,18 +2642,18 @@ init_skip_report:
         printf_debug("[SM] VLP cleared on boot (spup_en=%d V=%.2f)\r\n", g_spupower.enabled, g_sensor.voltage);
     }
 
-    // åˆå§‹åŒ–å®Œæˆï¼Œè¿›å…¥ä¼‘çœ 
+    // ³õÊ¼»¯Íê³É£¬½øÈëĞİÃß
     app_state = STATE_SLEEP;
 
-    // ==================== çŠ¶æ€æœºä¸»å¾ªï¿½?====================
+    // ==================== ×´Ì¬»úÖ÷Ñ­??====================
     while(1)
     {
-        // ISRç½®ä½åç«‹å³å“åº”debugä¸²å£é…ç½®å‘½ä»¤
+        // ISRÖÃÎ»ºóÁ¢¼´ÏìÓ¦debug´®¿ÚÅäÖÃÃüÁî
         if(debug_rx_line_ready())
             debug_check_cmd();
 
-        // è½¯ä»¶çœ‹é—¨ï¿½? æ¯æ¬¡çŠ¶æ€åˆ†å‘å‰é‡æ–°ä½¿èƒ½å¹¶å¤ä½è®¡ï¿½?(æ´»è·ƒå¤„ç†é˜¶æ®µä¿æŠ¤)
-        // æ·±ä¼‘çœ ç”± enter_deepsleep_mode() å†…éƒ¨ swdt_disable() å…³é—­, ä¼‘çœ æœŸä¸è®¡æ—¶
+        // Èí¼ş¿´ÃÅ?? Ã¿´Î×´Ì¬·Ö·¢Ç°ÖØĞÂÊ¹ÄÜ²¢¸´Î»¼Æ??(»îÔ¾´¦Àí½×¶Î±£»¤)
+        // ÉîĞİÃßÓÉ enter_deepsleep_mode() ÄÚ²¿ swdt_disable() ¹Ø±Õ, ĞİÃßÆÚ²»¼ÆÊ±
         swdt_enable(SWDT_TIMEOUT_MS);
 
         switch(app_state)

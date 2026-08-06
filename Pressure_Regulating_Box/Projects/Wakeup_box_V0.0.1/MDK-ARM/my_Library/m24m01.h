@@ -3,39 +3,78 @@
 
 #include "stdint.h"
 
-/*
- * M24M01-RMN6P å…³é”®å‚æ•°ï¼ˆè§„æ ¼ä¹¦ï¿½?
- * - å®¹é‡: 1Mbit = 128K Bytes (131072)
- * - ç»„ç»‡: 512ï¿½?Ã— 256å­—èŠ‚/ï¿½?
- * - 17ä½åœ°å€: A16ç¼–å…¥è®¾å¤‡åœ°å€å­—èŠ‚, A15~A0ï¿½?å­—èŠ‚å­—åœ°å€
- * - è®¾å¤‡åœ°å€å­—èŠ‚: 1010 E2 E1 A16 R/W  (E2=E1=0 æ¥åœ°)
- * - é¡µå†™å¤§å°: 256å­—èŠ‚
- * - å†™å‘¨ï¿½? æœ€ï¿½?ms
- */
+/* ============================================================
+ * EEPROM Ğ¾Æ¬ĞÍºÅÑ¡Ôñ£¨±àÒëºê¿ª¹Ø, ·Â PT304D Çı¶¯Ğ­ÒéÑ¡ÔñĞ´·¨£©
+ * Ê¹ÓÃ·½·¨: ÆôÓÃ¶ÔÓ¦Ğ¾Æ¬ºê, ×¢ÊÍµôÁíÒ»¸ö; ±ØĞëÇÒÖ»ÄÜÆôÓÃÒ»¸ö
+ *   EEPROM_DRV_M24M01  : M24M01-RMN6P 128KB, 256BÒ³, 17Î»µØÖ·(A16)
+ *   EEPROM_DRV_AT24C64 : AT24C64 8KB, 32BÒ³, 13Î»µØÖ·
+ * ============================================================ */
+#define EEPROM_DRV_M24M01
+//#define EEPROM_DRV_AT24C64
 
-#define M24M01_BASE_ADDR   0xA0    // åŸºç¡€è®¾å¤‡åœ°å€ 1010_00_0_0 (E2=0,E1=0)
-#define M24M01_PAGE_SIZE   32     // é¡µå¤§ï¿½?56å­—èŠ‚
-#define M24M01_TOTAL_SIZE  8192  // æ€»å®¹ï¿½?28KB
-#define M24M01_WRITE_TIME  5       // å†™å‘¨ï¿½?5ms
+#if defined(EEPROM_DRV_M24M01) && defined(EEPROM_DRV_AT24C64)
+  #error "EEPROM: Ö»ÄÜÑ¡ÔñÒ»ÖÖĞ¾Æ¬ĞÍºÅ (EEPROM_DRV_M24M01 / EEPROM_DRV_AT24C64)"
+#elif defined(EEPROM_DRV_M24M01)
+  /* ---- M24M01-RMN6P ¹Ø¼ü²ÎÊı£¨¹æ¸ñÊé£©----
+   * - ÈİÁ¿: 1Mbit = 128K Bytes (131072)
+   * - ×éÖ¯: 512Ò³ x 256×Ö½Ú/Ò³
+   * - 17Î»µØÖ·: A16±àÈëÉè±¸µØÖ·×Ö½Ú bit1, A15~A0 Îª 2 ×Ö½Ú×ÖµØÖ·
+   * - Éè±¸µØÖ·×Ö½Ú: 1010 E2 E1 A16 R/W  (E2=E1=0 ½ÓµØ)
+   * - Ò³Ğ´´óĞ¡: 256×Ö½Ú
+   * - Ğ´ÖÜÆÚ: ×î´ó 5ms */
+  #define EEPROM_BASE_ADDR   0xA0    /* »ù´¡Éè±¸µØÖ· 1010_00_0_0 (E2=0,E1=0) */
+  #define EEPROM_PAGE_SIZE   256     /* Ò³´óĞ¡ 256×Ö½Ú */
+  #define EEPROM_TOTAL_SIZE  131072  /* ×ÜÈİÁ¿ 128KB */
+  #define EEPROM_WRITE_TIME  5       /* Ğ´ÖÜÆÚ 5ms */
+  /* ¸ù¾İ17Î»µØÖ·¼ÆËãÉè±¸µØÖ·×Ö½Ú£¨A16±àÈë bit1£© */
+  #define EEPROM_DEV_ADDR(full_addr)  (uint8_t)(EEPROM_BASE_ADDR | ((((uint32_t)(full_addr) >> 16) & 0x01) << 1))
+  /* È¡¸ß×Ö½Ú×ÖµØÖ· A15~A8 */
+  #define EEPROM_ADDR_HI(full_addr)   (uint8_t)(((full_addr) >> 8) & 0xFF)
+#elif defined(EEPROM_DRV_AT24C64)
+  /* ---- AT24C64 ¹Ø¼ü²ÎÊı ----
+   * - ÈİÁ¿: 64Kbit = 8K Bytes (8192)
+   * - ×éÖ¯: 256Ò³ x 32×Ö½Ú/Ò³
+   * - 13Î»µØÖ·: 2×Ö½Ú×ÖµØÖ· (¸ß×Ö½ÚµÍ5Î»ÓĞĞ§, A12~A8)
+   * - Éè±¸µØÖ·×Ö½Ú: 1010 E2 E1 0 R/W (E2=E1=0 ½ÓµØ), ºã 0xA0
+   * - Ò³Ğ´´óĞ¡: 32×Ö½Ú
+   * - Ğ´ÖÜÆÚ: ×î´ó 5ms */
+  #define EEPROM_BASE_ADDR   0xA0    /* »ù´¡Éè±¸µØÖ· 1010_00_0_0 (E2=0,E1=0) */
+  #define EEPROM_PAGE_SIZE   32      /* Ò³´óĞ¡ 32×Ö½Ú */
+  #define EEPROM_TOTAL_SIZE  8192    /* ×ÜÈİÁ¿ 8KB */
+  #define EEPROM_WRITE_TIME  5       /* Ğ´ÖÜÆÚ 5ms */
+  /* AT24C64 ÎŞ A16, Éè±¸µØÖ·¹Ì¶¨ 0xA0 */
+  #define EEPROM_DEV_ADDR(full_addr)  (EEPROM_BASE_ADDR)
+  /* È¡¸ß×Ö½Ú×ÖµØÖ· A12~A8 (13Î»µØÖ·) */
+  #define EEPROM_ADDR_HI(full_addr)   (uint8_t)(((full_addr) >> 8) & 0x1F)
+#else
+  #error "EEPROM: Î´Ñ¡ÔñĞ¾Æ¬ĞÍºÅ, ÇëÔÚ m24m01.h ÆôÓÃ EEPROM_DRV_M24M01 »ò EEPROM_DRV_AT24C64"
+#endif
 
-// æ ¹æ®17ä½åœ°å€è®¡ç®—è®¾å¤‡åœ°å€å­—èŠ‚ï¼ˆA16ç¼–å…¥bit1ï¿½?
-#define M24M01_DEV_ADDR(full_addr)  (M24M01_BASE_ADDR)
-// å–é«˜å­—èŠ‚å­—åœ°å€ A15~A8
-#define M24M01_ADDR_HI(full_addr)   ((uint8_t)(((full_addr) >> 8) & 0x1F))
-// å–ä½å­—èŠ‚å­—åœ°å€ A7~A0
-#define M24M01_ADDR_LO(full_addr)   ((uint8_t)((full_addr) & 0xFF))
+/* È¡µÍ×Ö½Ú×ÖµØÖ· A7~A0 (Á½ÖÖĞ¾Æ¬Ò»ÖÂ) */
+#define EEPROM_ADDR_LO(full_addr)   (uint8_t)((full_addr) & 0xFF)
 
-// å†™å•å­—èŠ‚
+/* ============================================================
+ * ¼æÈİ¾ÉºêÃû (M24M01_*): ±£³Ö m24m01.c ÓëÍâ²¿µ÷ÓÃ·½ÎŞĞèĞŞ¸Ä
+ * ============================================================ */
+#define M24M01_BASE_ADDR    EEPROM_BASE_ADDR
+#define M24M01_PAGE_SIZE    EEPROM_PAGE_SIZE
+#define M24M01_TOTAL_SIZE   EEPROM_TOTAL_SIZE
+#define M24M01_WRITE_TIME   EEPROM_WRITE_TIME
+#define M24M01_DEV_ADDR(full_addr)  EEPROM_DEV_ADDR(full_addr)
+#define M24M01_ADDR_HI(full_addr)   EEPROM_ADDR_HI(full_addr)
+#define M24M01_ADDR_LO(full_addr)   EEPROM_ADDR_LO(full_addr)
+
+/* Ğ´µ¥×Ö½Ú */
 uint8_t M24M01_WriteByte(uint32_t addr, uint8_t data);
-// é¡µå†™ï¼ˆæœ€ï¿½?56å­—èŠ‚ï¼Œä¸å¯è·¨é¡µï¼‰
+/* Ò³Ğ´£¨×î´ó 256 ×Ö½Ú£¬²»¿É¿çÒ³£© */
 uint8_t M24M01_WritePage(uint32_t addr, const uint8_t *data, uint16_t len);
-// ä»»æ„é•¿åº¦å†™ï¼ˆè‡ªåŠ¨åˆ†é¡µï¼Œæ”¯æŒè·¨é¡µï¼‰
+/* ÈÎÒâ³¤¶ÈĞ´£¨×Ô¶¯·ÖÒ³£¬Ö§³Ö¿çÒ³£© */
 uint8_t M24M01_Write(uint32_t addr, const uint8_t *data, uint16_t len);
-// éšæœºè¯»ï¼ˆä»»æ„åœ°å€ï¼Œä»»æ„é•¿åº¦ï¼‰
+/* Ëæ»ú¶Á£¨ÈÎÒâµØÖ·£¬ÈÎÒâ³¤¶È£© */
 uint8_t M24M01_Read(uint32_t addr, uint8_t *buf, uint16_t len);
-// ACKè½®è¯¢ç­‰å¾…å†™å‘¨æœŸå®Œï¿½?
+/* ACKÂÖÑ¯µÈ´ıĞ´ÖÜÆÚÍê³É */
 uint8_t M24M01_WaitReady(uint32_t addr, uint16_t timeout_ms);
-// è¯»å†™æµ‹è¯•ï¼ˆé€šè¿‡è°ƒè¯•ä¸²å£è¾“å‡ºç»“æœï¿½?
+/* ¶ÁĞ´²âÊÔ£¨Í¨¹ıµ÷ÊÔ´®¿ÚÊä³ö½á¹û£© */
 void M24M01_Test(void);
 
 #endif

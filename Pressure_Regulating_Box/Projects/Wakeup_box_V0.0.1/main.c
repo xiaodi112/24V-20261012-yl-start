@@ -81,7 +81,12 @@ static uint8_t fourG_init_failed = 0;       // 4G注网失败标志(阻止do_sle
 static uint8_t fourG_weak_signal = 0;       // 弱信号断电标志(long模式下CSQ过低, 暂时按需冷启动)
 #define CSQ_WEAK_THRESHOLD  8               // CSQ<此值触发断电省电(8≈-97dBm)
 static uint8_t vlp_uploaded_this_hour = 0;  // 低电压模?? 防止同一小时重复上报
-ThresholdResult_t last_realtime_alarm = THRESHOLD_OK;          // 实时模式防重复报??
+/* ==================== 实时/报警状态类跟踪 (防重复) ====================
+ * 按状态类比较而非精确枚举: 同类异常(压力/温度/其它)持续时不再重复重采/上报,
+ * 状态类变化才重新确认; 恢复需连续 RT_RECOVER_CONFIRM_CNT 次正常(消抖). */
+RtStateClass_t last_rt_class = RT_CLASS_NORMAL;   /* 已确认状态类 (类型见 threshold.h) */
+static uint8_t rt_ok_count = 0;                   /* 恢复消抖计数 */
+#define RT_RECOVER_CONFIRM_CNT 3                  /* 连续N次正常才判定恢复 */
 static uint32_t g_ble_on_hhmmss = 0;                          // BLE开启时的RTC时间 (HHMMSS), 用于60s未连接超时自动关闭??
 static uint8_t g_is_minimal_wakeup = 0;            // 标志：是否为纯周期传感器采集的最简唤醒状??
 uint8_t g_need_adc_sampling = 1;                   // 标志：当前周期是否需要进行电池电压采??
@@ -642,6 +647,29 @@ static void realtime_enter_sleep(void)
     bsp_pmu_enter_deepsleep(lpuart_enabled, g_lcd_active, g_bt_on);
 }
 
+/* 阈值结果 → 状态类 (归并精确枚举; 压力/突变合并为压力类, 防类型波动重复报警) */
+static RtStateClass_t rt_class_of(ThresholdResult_t r)
+{
+    switch(r)
+    {
+        case THRESHOLD_OK:
+            return RT_CLASS_NORMAL;
+        case THRESHOLD_OVER_LIMIT:
+        case THRESHOLD_UNDER_LIMIT:
+        case THRESHOLD_VERY_LOW:
+        case THRESHOLD_VERY_HIGH:
+        case THRESHOLD_MUTATION:
+            return RT_CLASS_PRESSURE;
+        case THRESHOLD_TEMP_HIGH:
+        case THRESHOLD_TEMP_LOW:
+        case THRESHOLD_TEMP_VERY_HIGH:
+        case THRESHOLD_TEMP_VERY_LOW:
+            return RT_CLASS_TEMP;
+        default:
+            return RT_CLASS_OTHER;   /* VPROTECT / 电压等 */
+    }
+}
+
 // ==================== 实时采集最小化唤醒路径 ====================
 // 仅初始化 SysTick + I2C + PD4, 采集传感?? 判断异常
 // 异常时立即重采确?? 确认后启4G上报; 正常则直接回??
@@ -726,48 +754,56 @@ static void do_realtime_check(void)
     // === 正常 ??检查报警恢????更新压力 ??直接回睡 ===
     if(result == THRESHOLD_OK && !sensor_err)
     {
-        // 报警恢复: 之前自动关阀, 现传感器正常 ??恢复阀门到关阀前状??
-        // (??do_collect 末尾恢复逻辑一?? 实时模式无需等待下一采集周期)
-        if(g_valve_alarm_closed && !voltage_low_power)
+        /* 恢复消抖: 连续 RT_RECOVER_CONFIRM_CNT 次正常才判定恢复,
+         * 避免单次 OK (传感器抖动/垃圾读数) 清掉防重复标志导致异常反复重采 */
+        if(rt_ok_count < RT_RECOVER_CONFIRM_CNT)
+            rt_ok_count++;
+
+        if(rt_ok_count >= RT_RECOVER_CONFIRM_CNT && last_rt_class != RT_CLASS_NORMAL)
         {
-            const char *restore_action = (g_valve_pre_alarm_order == 1) ? "open" : "close";
-            ensure_full_init();
-            trea_uart_init();
-            printf_debug("[RT] ALARM recovered, restoring valve to %s (pre=%d)\r\n",
-                         restore_action, g_valve_pre_alarm_order);
-
-            IIC_Init();
-            bsp_motor_init();
-            const char *vr = valve_execute(restore_action, 0);
-            g_valve_alarm_closed = 0;
-            config_save_ext();
-
-            int was_online;
-            int ec_ok = fourG_ensure_ready(&was_online);
-            if(ec_ok)
+            // 报警恢复: 之前自动关阀, 现传感器正常 ??恢复阀门到关阀前状??
+            // (??do_collect 末尾恢复逻辑一?? 实时模式无需等待下一采集周期)
+            if(g_valve_alarm_closed && !voltage_low_power)
             {
-                EC801E_PublishValveStatus(vr, g_valve_last_order);
-                EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.last_normal_voltage);
-                publish_all_status(g_sensor.last_pressure_realtime, g_sensor.last_pressure_realtime2);
-            }
-            fourG_restore(was_online, ec_ok);
-        }
-        else if(last_realtime_alarm != THRESHOLD_OK)
-        {
-            // 之前有报警但未关阀(策略为none等), 现恢复正常, 需上报恢复状态
-            ensure_full_init();
-            int was_online;
-            int ec_ok = fourG_ensure_ready(&was_online);
-            if(ec_ok)
-            {
-                EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.last_normal_voltage);
-                publish_all_status(g_sensor.last_pressure_realtime, g_sensor.last_pressure_realtime2);
-            }
-            fourG_restore(was_online, ec_ok);
-        }
+                const char *restore_action = (g_valve_pre_alarm_order == 1) ? "open" : "close";
+                ensure_full_init();
+                trea_uart_init();
+                printf_debug("[RT] ALARM recovered, restoring valve to %s (pre=%d)\r\n",
+                             restore_action, g_valve_pre_alarm_order);
 
-        if(last_realtime_alarm != THRESHOLD_OK)
-            last_realtime_alarm = THRESHOLD_OK;   // 恢复正常, 清除防重复标??
+                IIC_Init();
+                bsp_motor_init();
+                const char *vr = valve_execute(restore_action, 0);
+                g_valve_alarm_closed = 0;
+                config_save_ext();
+
+                int was_online;
+                int ec_ok = fourG_ensure_ready(&was_online);
+                if(ec_ok)
+                {
+                    EC801E_PublishValveStatus(vr, g_valve_last_order);
+                    EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.last_normal_voltage);
+                    publish_all_status(g_sensor.last_pressure_realtime, g_sensor.last_pressure_realtime2);
+                }
+                fourG_restore(was_online, ec_ok);
+            }
+            else
+            {
+                // 之前有报警但未关阀(策略为none等), 现恢复正常, 需上报恢复状态
+                ensure_full_init();
+                int was_online;
+                int ec_ok = fourG_ensure_ready(&was_online);
+                if(ec_ok)
+                {
+                    EC801E_PublishAlarmStatus(THRESHOLD_OK, g_sensor.last_normal_voltage);
+                    publish_all_status(g_sensor.last_pressure_realtime, g_sensor.last_pressure_realtime2);
+                }
+                fourG_restore(was_online, ec_ok);
+            }
+
+            last_rt_class = RT_CLASS_NORMAL;   /* 确认恢复, 清除防重复状态 */
+            rt_ok_count = 0;
+        }
 
         // 静态限值正常后, 补充突变检测 (skip_mutation=0)
         // 恢复上报已完成, 此处仅检测是否存在新的纯突变异常
@@ -785,15 +821,20 @@ static void do_realtime_check(void)
         }
         // 突变异常 → 继续往下走异常确认流程
     }
+    else
+    {
+        rt_ok_count = 0;   /* 观测到异常, 恢复消抖清零 */
+    }
 
-    // === 异常 → 防重复: 同类异常不重复上报 ===
-    if(result == last_realtime_alarm && result != THRESHOLD_OK)
+    // === 异常 → 防重复: 相同状态类不重复重采/上报 ===
+    if(rt_class_of(result) == last_rt_class && last_rt_class != RT_CLASS_NORMAL)
     {
         g_sensor.last_pressure_realtime = g_sensor.raw.pressure;
         g_sensor.last_pressure_realtime2 = g_sensor.raw2.pressure;
         realtime_enter_sleep();
         return;
     }
+
 
     // === 异常 ??立即重采确认 (3?? ===
     for(i = 0; i < APP_ALARM_RECHECK_COUNT; i++)
@@ -823,7 +864,7 @@ static void do_realtime_check(void)
     }
 
     // === 确认异常 ??记录防重复标??===
-    last_realtime_alarm = result;
+    last_rt_class = rt_class_of(result);
 
     // === 异常关阀 (安全动作, 不依赖4G通信) ===
     {
@@ -1727,6 +1768,13 @@ static void do_collect(void)
         }
     }
 
+    if(result == THRESHOLD_OK)
+    {
+        /* 间隔路径: 一次完整正常采集即恢复 (10min 间隔天然确认) */
+        last_rt_class = RT_CLASS_NORMAL;
+        rt_ok_count = 0;
+    }
+
     // 低电压恢?? 以下任一条件触发退??VLP
     //   (a) 电压回到 vprotect 以上 (正常恢复)
     //   (b) spupower.switch 被用户关??(不再执行电压检?? 不能残留 VLP 状态锁??
@@ -1813,6 +1861,35 @@ static void do_alarm(void)
     SensorRecord_t record;
     ThresholdResult_t result;
     const char *alarm_type = "unknown";
+    /* 防重复: 状态类与上次相同且非正常 -> 相同状态不重复判断,
+     * 跳过重采/关阀/4G上报, 仅保留异常样本历史记录 */
+    {
+        ThresholdResult_t first = threshold_check(g_sensor.raw.pressure, g_sensor.raw.temperature,
+                                                  g_sensor.voltage, g_sensor.last_pressure_collect, 1, 0);
+        if(first == THRESHOLD_OK && g_sensor_count >= 2 && g_sensor.raw2.err == PT304D_OK)
+            first = threshold_check2(g_sensor.raw2.pressure, g_sensor.raw2.temperature,
+                                     g_sensor.last_pressure_collect2, 0);
+        if(rt_class_of(first) == last_rt_class && last_rt_class != RT_CLASS_NORMAL)
+        {
+            record.pressure  = g_sensor.raw.pressure;
+            record.temperature = g_sensor.raw.temperature;
+            record.pressure2 = g_sensor.raw2.pressure;
+            record.temperature2 = g_sensor.raw2.temperature;
+            record.voltage   = g_sensor.voltage;
+            rtc_get_time_str(record.timestamp, sizeof(record.timestamp));
+            record.flags = SENSOR_FLAG_ALARM;
+            memset(record.reserved, 0, sizeof(record.reserved));
+            ee_hist_push(record.pressure, record.temperature,
+                         record.pressure2, record.temperature2,
+                         record.voltage, record.flags);
+            g_sensor.last_pressure_collect  = g_sensor.raw.pressure;
+            g_sensor.last_pressure_collect2 = g_sensor.raw2.pressure;
+            wakeup_count++;
+            printf_debug("[SM] ALARM same class, skip recheck/report\r\n");
+            check_upload_schedule();
+            return;
+        }
+    }
 
     ensure_full_init();
     bsp_wdt_sw_feed();   // 4G冷启动+阀门动作+上报累计可达百秒级, 喂狗防止SWDT超时

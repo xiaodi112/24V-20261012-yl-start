@@ -36,6 +36,19 @@ typedef enum {
     THRESHOLD_VOLT_HIGH,        // 电压过高 (> spupower.high)
     THRESHOLD_VOLT_LOW          // 电压过低 (< spupower.low)
 } ThresholdResult_t;
+/* ==================== 状态类 (报警防重复判断用) ====================
+ * 按类比较而非精确枚举: 同类异常(压力/温度/其它)持续时不再重复重采/上报,
+ * 状态类变化才重新确认; 恢复需连续 RT_RECOVER_CONFIRM_CNT 次正常(消抖).
+ * last_rt_class 定义于 main.c. */
+typedef enum {
+    RT_CLASS_NORMAL = 0,
+    RT_CLASS_PRESSURE,   /* 压力越限/突变 (OVER_LIMIT/UNDER_LIMIT/VERY_LOW/VERY_HIGH/MUTATION) */
+    RT_CLASS_TEMP,       /* 温度越限 (TEMP_*) */
+    RT_CLASS_OTHER       /* VPROTECT / 电压等 */
+} RtStateClass_t;
+
+extern RtStateClass_t last_rt_class;
+
 
 // ==================== 接口函数 ====================
 

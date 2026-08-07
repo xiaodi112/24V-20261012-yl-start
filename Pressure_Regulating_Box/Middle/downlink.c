@@ -26,7 +26,6 @@
 
 // ==================== 跨模块变量访问 (定义在main.c) ====================
 extern uint8_t fourG_user_off;
-extern ThresholdResult_t last_realtime_alarm;
 extern uint8_t g_need_adc_sampling;
 
 // ==================== 内部: JSON字段提取 ====================
@@ -865,7 +864,7 @@ static void process_downlink_cmd(const char *id_val, const char *cmd_val, const 
                     g_real_frequency = 5;
             }
             config_save_ext();
-            last_realtime_alarm = THRESHOLD_OK;
+            last_rt_class = RT_CLASS_NORMAL;
             printf_debug("[SM] real_set: enabled=%d frequency=%ds\r\n", g_real_enabled, g_real_frequency);
         }
         if(EC801E_EnsureConnected() == EC_OK)

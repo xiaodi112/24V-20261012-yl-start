@@ -43,8 +43,8 @@ void bsp_pmu_low_power_pins(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t 
     rcu_periph_clock_enable(RCU_GPIOF);
 
     /* 2. GPIOA: 排除 PA1 (4G RI 唤醒) / PA8-10 (SLCD COM0-2, LCD 开启时);
-     * PA5 (M_SLP 电机驱动使能) 保持输出 LOW: 深睡前已 bsp_motor_enable(0), 转 Analog 会使使能脚浮空, 存在 H 桥误使能风险 */
-    uint32_t gpioa_analog_pins = GPIO_PIN_0 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 |
+     * PA5 (M_SLP 电机驱动使能) 保持输出 LOW; PA0 (4G DTR) 保持输出 HIGH (允许模块休眠, 浮空会被内部下拉拉低导致不休眠) */
+    uint32_t gpioa_analog_pins = GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 |
                                  GPIO_PIN_6 | GPIO_PIN_7 |
                                  GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
     if(!lpuart_enabled)
@@ -86,11 +86,12 @@ void bsp_pmu_low_power_pins(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t 
         gpiod_analog_pins |= (GPIO_PIN_8 | GPIO_PIN_9);
     gpio_mode_set(GPIOD, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, gpiod_analog_pins);
 
-    /* 关键电源/使能脚保持输出 LOW (不转 Analog, 防止浮空误导通):
-     *   PD4: I2C 传感器电源开关 (高=上电, 深睡必须低=断电)
-     *   PA5: M_SLP 电机驱动使能 (低=关闭驱动芯片) */
+    /* 关键电源/使能脚深睡期显式定电平 (不转 Analog, 防止浮空误导通/误唤醒):
+     *   PD4: I2C 传感器电源开关 (低=断电); PA5: M_SLP 电机使能 (低=关闭); PA0: 4G DTR (高=允许模块休眠) */
     gpio_bit_reset(GPIOD, GPIO_PIN_4);
     gpio_bit_reset(GPIOA, GPIO_PIN_5);
+    gpio_mode_set(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_0);   /* PA0: 4G DTR 输出模式 */
+    gpio_bit_set(GPIOA, GPIO_PIN_0);                                /* PA0: DTR HIGH = 允许 4G 模块休眠 */
     /* 6. GPIOF 全部未使用, 转 Analog */
     gpio_mode_set(GPIOF, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO_PIN_0 | GPIO_PIN_1);
 }

@@ -635,6 +635,7 @@ static void realtime_enter_sleep(void)
        strcmp(g_window.pattern, "long") == 0 &&
        (config_is_active_window() || g_window.end_result == 1))
     {
+        gpio_set_4g_dtr(1);   /* 兜底: 回睡前 DTR 拉高, 允许 4G 模块 QSCLK/PSM 休眠 (防止上次唤醒操作残留 DTR 低) */
         com_lpuart_init();
         lpuart_wakeup_init();
         ri_exti_init();

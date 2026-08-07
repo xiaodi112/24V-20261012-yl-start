@@ -261,6 +261,11 @@ static void sys_init(void)
         gpio_set_4g_power(1);
 
     bsp_motor_init();
+#if defined(VALVE_MODE_NONBLOCKING)
+    /* 关键: sys_init 会重配电机引脚(复位驱动), 若非阻塞动作正在进行,
+     * 必须立即恢复当前方向驱动, 否则动作中途断电直到超时 */
+    valve_fsm_redrive();
+#endif
     IIC_Init();
 	IIC_GPIO_Init1();
     adc_bat_init();

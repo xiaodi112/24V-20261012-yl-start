@@ -18,6 +18,7 @@ uint8_t  test_drive        = 0;   /* 0=停止 1=开阀 2=关阀 */
 uint8_t  test_eeprom[4096];
 uint32_t test_fault_count  = 0;
 uint8_t  test_config_saved = 0;
+void (*volatile valve_test_hook)(void) = 0;   /* valve_execute per-iteration hook */
 
 /* ==================== 配置全局 (原 eeprom_config.c 定义) ==================== */
 uint8_t g_valve_last_order = 0;

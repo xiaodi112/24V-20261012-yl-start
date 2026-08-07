@@ -42,9 +42,10 @@ void bsp_pmu_low_power_pins(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t 
     rcu_periph_clock_enable(RCU_GPIOD);
     rcu_periph_clock_enable(RCU_GPIOF);
 
-    /* 2. GPIOA: 排除 PA1 (4G RI 唤醒) / PA8-10 (SLCD COM0-2, LCD 开启时) */
+    /* 2. GPIOA: 排除 PA1 (4G RI 唤醒) / PA8-10 (SLCD COM0-2, LCD 开启时);
+     * PA5 (M_SLP 电机驱动使能) 保持输出 LOW: 深睡前已 bsp_motor_enable(0), 转 Analog 会使使能脚浮空, 存在 H 桥误使能风险 */
     uint32_t gpioa_analog_pins = GPIO_PIN_0 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 |
-                                 GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 |
+                                 GPIO_PIN_6 | GPIO_PIN_7 |
                                  GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
     if(!lpuart_enabled)
         gpioa_analog_pins |= GPIO_PIN_1;   /* PA1: 4G 断电时转 Analog */
@@ -74,8 +75,8 @@ void bsp_pmu_low_power_pins(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t 
     }
     gpio_mode_set(GPIOC, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, gpioc_analog_pins);
 
-    /* 5. GPIOD: PD0 (按键唤醒) 保持输入; PD4 (I2C 电源) 保持输出 LOW; PD8/9 (LPUART) 按需保留 */
-    uint32_t gpiod_analog_pins = GPIO_PIN_3 | GPIO_PIN_4 |
+    /* 5. GPIOD: PD0 (按键唤醒) 保持输入; PD4 (I2C 电源开关) 保持输出 LOW (转 Analog 会使 MOSFET 栅极浮空误导通); PD8/9 (LPUART) 按需保留 */
+    uint32_t gpiod_analog_pins = GPIO_PIN_3 |
                                  GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 |
                                  GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13 |
                                  GPIO_PIN_14 | GPIO_PIN_15;
@@ -85,6 +86,11 @@ void bsp_pmu_low_power_pins(uint8_t lpuart_enabled, uint8_t lcd_active, uint8_t 
         gpiod_analog_pins |= (GPIO_PIN_8 | GPIO_PIN_9);
     gpio_mode_set(GPIOD, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, gpiod_analog_pins);
 
+    /* 关键电源/使能脚保持输出 LOW (不转 Analog, 防止浮空误导通):
+     *   PD4: I2C 传感器电源开关 (高=上电, 深睡必须低=断电)
+     *   PA5: M_SLP 电机驱动使能 (低=关闭驱动芯片) */
+    gpio_bit_reset(GPIOD, GPIO_PIN_4);
+    gpio_bit_reset(GPIOA, GPIO_PIN_5);
     /* 6. GPIOF 全部未使用, 转 Analog */
     gpio_mode_set(GPIOF, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO_PIN_0 | GPIO_PIN_1);
 }
